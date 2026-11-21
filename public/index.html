@@ -290,7 +290,7 @@ function renderPlatformHints() {
   const h = $("platformHint");
   if (cfg.platform !== "vercel") { h.textContent = ""; return; }
   h.innerHTML = !cfg.storage
-    ? `<span class="st-failed">No database connected: add Upstash Redis in the Vercel project's Storage tab and redeploy to use the schedule.</span>`
+    ? `<span class="st-failed">No database connected: connect a database (Neon Postgres or Upstash Redis) in the Vercel project's Storage tab and redeploy to use campaigns.</span>`
     : `On Vercel, runs are started by a cron call to /api/cron${cfg.cronConfigured ? "" : ` <span class="st-failed">(set CRON_SECRET first)</span>`}. The free plan allows one call a day, so pick a daily time that matches it, or call /api/cron every few minutes from an external cron service. One call sends for up to about 4½ minutes; the rest continues on the next call.`;
 }
 loadConfig();

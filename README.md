@@ -71,7 +71,8 @@ Each campaign has its own card showing its status, next run, live progress and a
 While a run is stopped, the campaign's scheduled runs are skipped (and noted in History) until you resume sending or cancel it.
 
 **Where campaigns are saved**
-- **On Vercel:** in your Upstash Redis database, under keys starting with `wa:`
+- **On Vercel with Neon Postgres:** in the table `wa_kv` (one row per key; keys start with `wa:`). Browse it in Vercel → Storage → your database → **Data Editor**.
+- **On Vercel with Upstash Redis:** under keys starting with `wa:`
   (`wa:campaigns` = the list, `wa:c:<id>` = a campaign, `wa:m:<id>` = its attachment, `wa:r:<id>` = a run in progress).
   You can browse them in the Upstash console (Data Browser).
 - **On your computer:** in the `data/` folder next to `server.js`
@@ -115,15 +116,18 @@ Vercel runs the page as static files and the API as one serverless function (`ap
 Because Vercel has no always-on server and no lasting disk, three things are different:
 
 - **Password login.** The site is public, so it does nothing until you set `APP_PASSWORD`.
-- **Database.** Campaigns live in an Upstash Redis database (free plan is enough).
+- **Database.** Campaigns live in a database: Vercel's **Neon Postgres** or **Upstash Redis** (free plans are enough).
 - **Cron.** Vercel calls `/api/cron` to start scheduled runs. One call can send for about 4½ minutes
   (`maxDuration` 300 s in `vercel.json`); a longer run pauses and continues on the next call.
 
 ### Steps
 
 1. Go to https://vercel.com/new and import the GitHub repository. Keep the framework preset **Other**; no build command is needed.
-2. In the project's **Storage** tab, add **Upstash for Redis** (from the Marketplace) and connect it to the project.
-   This adds `KV_REST_API_URL` and `KV_REST_API_TOKEN` (or `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`), which the app reads.
+2. In the project's **Storage** tab, connect a database (either one works):
+   - **Neon (Postgres):** create or pick a Neon database and click **Connect**. Use the prefix `DATABASE` so it adds `DATABASE_URL`
+     (`POSTGRES_URL` also works). The app keeps everything in one table, `wa_kv`, so a database shared with other apps is fine.
+   - **Upstash for Redis:** adds `KV_REST_API_URL` and `KV_REST_API_TOKEN` (or `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`).
+   If both are connected, Redis is used.
 3. In **Settings → Environment Variables**, add:
 
    | Name | Value |
