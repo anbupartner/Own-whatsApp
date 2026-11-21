@@ -1,0 +1,696 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>WhatsApp Bulk Sender</title>
+<style>
+  :root {
+    --bg: #f4f6f5; --card: #ffffff; --text: #1b2421; --muted: #66736e; --line: #dfe5e2;
+    --accent: #128c4a; --accent-soft: #e3f4ea; --err: #c0392b; --err-soft: #fbe9e7; --warn: #b7791f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #101513; --card: #181f1c; --text: #e6ece9; --muted: #93a19b; --line: #2a3430;
+      --accent: #2fbf71; --accent-soft: #173326; --err: #ff7b6b; --err-soft: #3a1f1b; --warn: #e0a84a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
+  header { padding: 18px 24px; border-bottom: 1px solid var(--line); background: var(--card); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  header h1 { font-size: 18px; margin: 0; }
+  .badge { font-size: 12px; padding: 2px 10px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); }
+  .badge.off { background: var(--err-soft); color: var(--err); }
+  main { max-width: 1200px; margin: 0 auto; padding: 20px 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; min-width: 0; }
+  .card.wide { grid-column: 1 / -1; }
+  h2 { font-size: 15px; margin: 0 0 12px; }
+  label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 4px; }
+  input, textarea, select { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); font: inherit; }
+  textarea { resize: vertical; }
+  button { font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--text); cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.danger { color: var(--err); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .row > .grow { flex: 1; min-width: 140px; }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  .chip { font-size: 12px; padding: 2px 8px; border-radius: 6px; background: var(--accent-soft); color: var(--accent); cursor: pointer; border: none; }
+  .preview { white-space: pre-wrap; background: var(--accent-soft); border-radius: 10px; padding: 10px 12px; margin-top: 6px; min-height: 40px; }
+  .tabs { display: flex; gap: 4px; background: var(--bg); padding: 4px; border-radius: 10px; margin-bottom: 8px; }
+  .tabs button { flex: 1; border: none; background: transparent; }
+  .tabs button.active { background: var(--card); box-shadow: 0 1px 2px rgba(0,0,0,.08); font-weight: 600; }
+  .hidden { display: none !important; }
+  .table-wrap { overflow-x: auto; max-height: 420px; overflow-y: auto; border: 1px solid var(--line); border-radius: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { position: sticky; top: 0; background: var(--card); color: var(--muted); font-weight: 500; }
+  td.msg { white-space: normal; min-width: 220px; max-width: 360px; color: var(--muted); }
+  .st-sent { color: var(--accent); font-weight: 600; }
+  .st-failed { color: var(--err); font-weight: 600; }
+  .st-sending { color: var(--warn); }
+  .st-skipped { color: var(--muted); }
+  .progress { height: 6px; background: var(--line); border-radius: 99px; overflow: hidden; margin: 10px 0; }
+  .progress > div { height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+  .stats { font-size: 13px; color: var(--muted); }
+  .num { width: 140px; }
+  .sched { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .sched h3 { font-size: 14px; margin: 0 0 4px; }
+  .srv { margin-top: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
+  .srv .head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
+  .srv .runs { font-size: 12px; color: var(--muted); margin-top: 8px; max-height: 140px; overflow-y: auto; }
+  .att { display: flex; gap: 10px; align-items: center; margin-top: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; font-size: 13px; }
+  .att img { width: 56px; height: 56px; object-fit: cover; border-radius: 6px; }
+  .att .icon { width: 56px; height: 56px; display: grid; place-items: center; font-size: 26px; background: var(--accent-soft); border-radius: 6px; }
+  .att .meta { min-width: 0; overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<header>
+  <h1>WhatsApp Bulk Sender</h1>
+  <span id="apiBadge" class="badge off">Checking API…</span>
+</header>
+
+<main>
+  <!-- 1. Contacts -->
+  <section class="card">
+    <h2>1. Contacts</h2>
+    <div class="row">
+      <input type="file" id="csvFile" accept=".csv,text/csv" class="grow" />
+      <button id="loadSample">Load sample</button>
+    </div>
+    <label for="csvText">…or paste CSV (first row = headers, must include a <b>phone</b> column)</label>
+    <textarea id="csvText" rows="6" placeholder="phone,name,city&#10;919876543210,Ravi,Chennai&#10;919812345678,Priya,Madurai"></textarea>
+    <div class="row" style="margin-top:8px">
+      <div class="grow">
+        <label for="cc">Default country code (added to numbers without one)</label>
+        <input id="cc" value="91" inputmode="numeric" />
+      </div>
+      <button class="primary" id="parseBtn" style="align-self:flex-end">Load contacts</button>
+    </div>
+    <div class="hint" id="contactInfo">No contacts loaded.</div>
+  </section>
+
+  <!-- 2. Message -->
+  <section class="card">
+    <h2>2. Message</h2>
+    <div class="tabs" id="modeTabs">
+      <button data-mode="manual" class="active">Manual (wa.me links)</button>
+      <button data-mode="api">Cloud API (automatic)</button>
+    </div>
+
+    <div id="textBlock">
+      <label for="msg">Message — use {column} placeholders, e.g. {name}</label>
+      <textarea id="msg" rows="6">Hi {name}, 👋
+This is a quick update from our team. Reply STOP if you don't want these messages.</textarea>
+      <div class="chips" id="chips"></div>
+    </div>
+
+    <div id="apiOpts" class="hidden">
+      <label for="apiType">API message type</label>
+      <select id="apiType">
+        <option value="template">Template (required for first contact / after 24h)</option>
+        <option value="text">Free text (only within 24h of their last message)</option>
+      </select>
+      <div id="tplBlock">
+        <div class="row">
+          <div class="grow"><label for="tplName">Template name</label><input id="tplName" placeholder="hello_world" value="hello_world" /></div>
+          <div style="width:120px"><label for="tplLang">Language</label><input id="tplLang" value="en_US" /></div>
+        </div>
+        <label for="tplParams">Body parameters, one per line ({{1}}, {{2}} …) — placeholders allowed</label>
+        <textarea id="tplParams" rows="3" placeholder="{name}&#10;{city}"></textarea>
+      </div>
+    </div>
+
+    <div id="attachBlock">
+      <label for="attFile">Attachment (optional): image (JPEG/PNG, up to 5 MB) or document (PDF, Word, Excel… up to 100 MB)</label>
+      <div class="row">
+        <input type="file" id="attFile" class="grow" accept="image/jpeg,image/png,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip" />
+        <button id="attClear">Remove</button>
+      </div>
+      <label for="attLink">…or a public https link to the file</label>
+      <div class="row">
+        <input id="attLink" class="grow" placeholder="https://example.com/brochure.pdf" />
+        <select id="attLinkKind" style="width:auto">
+          <option value="document">Document</option>
+          <option value="image">Image</option>
+        </select>
+      </div>
+      <div class="hint" id="attHint"></div>
+    </div>
+
+    <label>Preview (first contact)</label>
+    <div class="preview" id="preview">—</div>
+    <div id="attPreview" class="att hidden"></div>
+  </section>
+
+  <!-- 3. Send -->
+  <section class="card wide">
+    <h2>3. Send</h2>
+
+    <div id="manualControls">
+      <div class="row">
+        <select id="linkType" style="width:auto">
+          <option value="wa">wa.me (opens app / web)</option>
+          <option value="web">web.whatsapp.com</option>
+        </select>
+        <button class="primary" id="openNext">Open next chat ▶</button>
+        <button id="copyImg" class="hidden">Copy image</button>
+        <button id="resetStatus">Reset status</button>
+        <button id="exportCsv">Export results</button>
+      </div>
+      <div class="hint">Each click opens one chat with the message filled in. Press Send in WhatsApp, then come back and click again.</div>
+      <div class="hint" id="manualAttHint"></div>
+    </div>
+
+    <div id="apiControls" class="hidden">
+      <div class="row">
+        <div class="num"><label for="delayMin">Min gap (sec)</label><input id="delayMin" type="number" min="1" value="5" /></div>
+        <div class="num"><label for="delayMax">Max gap (sec)</label><input id="delayMax" type="number" min="1" value="15" /></div>
+        <div class="num"><label for="batchSize">Pause after every</label><input id="batchSize" type="number" min="0" value="20" /></div>
+        <div class="num"><label for="batchPause">messages, for (sec)</label><input id="batchPause" type="number" min="0" value="60" /></div>
+      </div>
+      <div class="hint">Each gap is a random time between min and max. Set “pause after every” to 0 to turn off the longer pause.</div>
+      <div class="row" style="margin-top:10px">
+        <button class="primary" id="startBtn">Start sending</button>
+        <button class="danger" id="stopBtn" disabled>Stop</button>
+        <button id="resetStatus2">Reset status</button>
+        <button id="exportCsv2">Export results</button>
+      </div>
+      <div class="hint">Only contacts whose status is not “sent” are sent. Only message people who agreed to hear from you.</div>
+
+      <div class="sched">
+        <h3>Repeat on a schedule (runs on the server)</h3>
+        <div class="hint">Saves the contacts (except skipped ones), message, attachment and interval above to the server, which sends them again on each run. You can close this page; only the server has to keep running.</div>
+        <div class="row" style="margin-top:8px">
+          <select id="schedType" style="width:auto">
+            <option value="daily">Every day at</option>
+            <option value="hours">Every N hours</option>
+            <option value="minutes">Every N minutes</option>
+          </select>
+          <input id="schedTime" type="time" value="09:00" style="width:auto" />
+          <input id="schedEvery" type="number" min="1" value="6" class="hidden" style="width:90px" />
+          <button class="primary" id="schedSave">Save schedule to server</button>
+        </div>
+        <div id="srvBox" class="srv hidden"></div>
+      </div>
+    </div>
+
+    <div class="progress"><div id="bar"></div></div>
+    <div class="stats" id="stats"></div>
+    <div class="stats" id="waitInfo"></div>
+
+    <div class="table-wrap" style="margin-top:10px">
+      <table>
+        <thead><tr><th>#</th><th>Phone</th><th>Name</th><th>Message</th><th>Status</th><th></th></tr></thead>
+        <tbody id="tbody"><tr><td colspan="6" class="hint">Load contacts to begin.</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let contacts = [];   // [{ phone, data:{...}, status, note }]
+let headers = [];
+let mode = "manual";
+let stopFlag = false;
+
+// ---------- API status ----------
+fetch("/api/config").then(r => r.json()).then(c => {
+  const b = $("apiBadge");
+  b.textContent = c.apiConfigured ? `Cloud API ready (${c.phoneNumberId})` : "Cloud API not configured — manual mode only";
+  b.classList.toggle("off", !c.apiConfigured);
+}).catch(() => { $("apiBadge").textContent = "Server not reachable"; });
+
+// ---------- CSV parsing (handles quotes) ----------
+function parseCSV(text) {
+  const rows = []; let row = [], field = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (q) {
+      if (ch === '"' && text[i + 1] === '"') { field += '"'; i++; }
+      else if (ch === '"') q = false;
+      else field += ch;
+    } else if (ch === '"') q = true;
+    else if (ch === ",") { row.push(field); field = ""; }
+    else if (ch === "\n" || ch === "\r") {
+      if (ch === "\r" && text[i + 1] === "\n") i++;
+      row.push(field); field = "";
+      if (row.some(f => f.trim() !== "")) rows.push(row);
+      row = [];
+    } else field += ch;
+  }
+  row.push(field);
+  if (row.some(f => f.trim() !== "")) rows.push(row);
+  return rows;
+}
+
+function normalizePhone(raw) {
+  let d = String(raw || "").replace(/\D/g, "").replace(/^00/, "");
+  const cc = $("cc").value.replace(/\D/g, "");
+  if (d.startsWith("0")) d = d.replace(/^0+/, "");
+  if (cc && d.length <= 10) d = cc + d;
+  return d;
+}
+
+function loadContacts() {
+  const rows = parseCSV($("csvText").value.trim());
+  if (rows.length < 2) { $("contactInfo").textContent = "Need a header row and at least one contact."; return; }
+  headers = rows[0].map(h => h.trim().toLowerCase());
+  const pi = headers.findIndex(h => ["phone", "mobile", "number", "whatsapp"].includes(h));
+  if (pi < 0) { $("contactInfo").textContent = "No 'phone' column found in headers."; return; }
+  const seen = new Set(); let dup = 0, bad = 0;
+  contacts = [];
+  for (const r of rows.slice(1)) {
+    const data = {}; headers.forEach((h, i) => data[h] = (r[i] || "").trim());
+    const phone = normalizePhone(r[pi]);
+    if (phone.length < 8) { bad++; continue; }
+    if (seen.has(phone)) { dup++; continue; }
+    seen.add(phone);
+    contacts.push({ phone, data, status: "pending", note: "" });
+  }
+  $("contactInfo").textContent = `${contacts.length} contacts loaded` + (dup ? `, ${dup} duplicates removed` : "") + (bad ? `, ${bad} invalid numbers skipped` : "") + ".";
+  renderChips(); render();
+}
+
+$("csvFile").addEventListener("change", async (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  $("csvText").value = await f.text(); loadContacts();
+});
+$("loadSample").onclick = async () => {
+  $("csvText").value = await (await fetch("/contacts.sample.csv")).text(); loadContacts();
+};
+$("parseBtn").onclick = loadContacts;
+
+// ---------- Message rendering ----------
+function fill(tpl, c) {
+  return tpl.replace(/\{(\w+)\}/g, (m, k) => {
+    k = k.toLowerCase();
+    if (k === "phone") return c.phone;
+    return c.data[k] !== undefined ? c.data[k] : m;
+  });
+}
+function messageFor(c) {
+  const a = currentAttachment();
+  const prefix = a ? `${a.kind === "image" ? "🖼" : "📄"} ${a.name}\n` : "";
+  if (mode === "api" && $("apiType").value === "template") {
+    const params = tplParams(c);
+    return prefix + `[template: ${$("tplName").value}]` + (params.length ? " " + params.join(" | ") : "");
+  }
+  return prefix + manualText(c);
+}
+// Text for the chat; in manual mode a link attachment is appended to it
+function manualText(c) {
+  const a = currentAttachment();
+  const text = fill($("msg").value, c);
+  return mode === "manual" && a?.source === "link" ? `${text}\n${a.link}` : text;
+}
+function tplParams(c) {
+  return $("tplParams").value.split("\n").map(s => s.trim()).filter(Boolean).map(s => fill(s, c));
+}
+
+function renderChips() {
+  $("chips").innerHTML = "";
+  headers.forEach(h => {
+    const b = document.createElement("button");
+    b.className = "chip"; b.textContent = `{${h}}`;
+    b.onclick = () => { const t = $("msg"); const p = t.selectionStart; t.value = t.value.slice(0, p) + `{${h}}` + t.value.slice(t.selectionEnd); t.focus(); render(); };
+    $("chips").appendChild(b);
+  });
+}
+
+function esc(s) { return String(s).replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch])); }
+
+function render() {
+  renderAttachment();
+  $("preview").textContent = contacts[0] ? messageFor(contacts[0]) : "—";
+  const tb = $("tbody");
+  if (!contacts.length) { tb.innerHTML = '<tr><td colspan="6" class="hint">Load contacts to begin.</td></tr>'; updateStats(); return; }
+  tb.innerHTML = contacts.map((c, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td>+${esc(c.phone)}</td>
+      <td>${esc(c.data.name || "")}</td>
+      <td class="msg">${esc(messageFor(c)).slice(0, 200)}</td>
+      <td class="st-${c.status}" title="${esc(c.note)}">${c.status}${c.note && c.status === "failed" ? " ⓘ" : ""}</td>
+      <td>${mode === "manual" ? `<button data-open="${i}">Open</button>` : `<button data-skip="${i}">${c.status === "skipped" ? "Unskip" : "Skip"}</button>`}</td>
+    </tr>`).join("");
+  updateStats();
+}
+
+$("tbody").addEventListener("click", (e) => {
+  const o = e.target.dataset.open, s = e.target.dataset.skip;
+  if (o !== undefined) openChat(Number(o));
+  if (s !== undefined) { const c = contacts[s]; c.status = c.status === "skipped" ? "pending" : "skipped"; render(); }
+});
+
+function updateStats() {
+  const n = contacts.length;
+  const cnt = (s) => contacts.filter(c => c.status === s).length;
+  const done = cnt("sent") + cnt("failed") + cnt("skipped");
+  $("bar").style.width = n ? (done / n * 100) + "%" : "0";
+  $("stats").textContent = n ? `Sent ${cnt("sent")} · Failed ${cnt("failed")} · Skipped ${cnt("skipped")} · Pending ${cnt("pending")} of ${n}` : "";
+}
+
+["msg", "tplName", "tplParams", "apiType"].forEach(id => $(id).addEventListener("input", render));
+$("apiType").addEventListener("change", () => { $("tplBlock").classList.toggle("hidden", $("apiType").value !== "template"); $("textBlock").classList.toggle("hidden", $("apiType").value === "template"); render(); });
+
+// ---------- Attachment ----------
+let attachment = null; // { file, kind: "image"|"document", mediaId, url }
+const IMAGE_TYPES = ["image/jpeg", "image/png"];
+const fmtSize = (b) => b > 1048576 ? (b / 1048576).toFixed(1) + " MB" : Math.ceil(b / 1024) + " KB";
+
+$("attFile").addEventListener("change", (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const isImg = f.type.startsWith("image/");
+  if (isImg && !IMAGE_TYPES.includes(f.type)) { alert("WhatsApp images must be JPEG or PNG. Send other images as a document by zipping them, or convert them."); e.target.value = ""; return; }
+  const kind = isImg ? "image" : "document";
+  const max = kind === "image" ? 5 * 1048576 : 100 * 1048576;
+  if (f.size > max) { alert(`File is ${fmtSize(f.size)}. The WhatsApp limit for ${kind}s is ${fmtSize(max)}.`); e.target.value = ""; return; }
+  if (attachment?.url) URL.revokeObjectURL(attachment.url);
+  attachment = { file: f, kind, mediaId: null, url: kind === "image" ? URL.createObjectURL(f) : null };
+  $("attLink").value = "";
+  render();
+});
+$("attClear").onclick = () => {
+  if (attachment?.url) URL.revokeObjectURL(attachment.url);
+  attachment = null; $("attFile").value = ""; $("attLink").value = ""; render();
+};
+["attLink", "attLinkKind"].forEach(id => $(id).addEventListener("input", () => {
+  if ($("attLink").value.trim() && attachment) { if (attachment.url) URL.revokeObjectURL(attachment.url); attachment = null; $("attFile").value = ""; }
+  render();
+}));
+
+// Current attachment as { kind, name, source: "file"|"link" } or null
+function currentAttachment() {
+  if (attachment) return { kind: attachment.kind, name: attachment.file.name, source: "file" };
+  const link = $("attLink").value.trim();
+  if (link) return { kind: $("attLinkKind").value, name: decodeURIComponent(link.split("?")[0].split("/").pop() || "file"), source: "link", link };
+  return null;
+}
+
+function renderAttachment() {
+  const a = currentAttachment();
+  const box = $("attPreview");
+  box.classList.toggle("hidden", !a);
+  $("copyImg").classList.toggle("hidden", !(a && a.source === "file" && a.kind === "image"));
+  if (!a) { $("attHint").textContent = ""; $("manualAttHint").textContent = ""; return; }
+  const thumb = a.source === "file" && a.kind === "image"
+    ? `<img src="${attachment.url}" alt="">`
+    : `<div class="icon">${a.kind === "image" ? "🖼" : "📄"}</div>`;
+  box.innerHTML = `${thumb}<div class="meta"><b>${esc(a.name)}</b><br>${a.kind}${a.source === "file" ? " · " + fmtSize(attachment.file.size) : " · link"}</div>`;
+
+  const isTpl = $("apiType").value === "template";
+  $("attHint").textContent = mode === "api"
+    ? (isTpl ? "Template mode: the attachment goes in the template header, so the template must have an IMAGE or DOCUMENT header."
+             : "Free text mode: the message above is sent as the caption (up to 1024 characters).")
+    : "";
+  $("manualAttHint").textContent = a.source === "link"
+    ? "The link is added to the end of the message."
+    : a.kind === "image"
+      ? "WhatsApp links can't carry files: after a chat opens, click Copy image and press Ctrl+V in the chat."
+      : "WhatsApp links can't carry files: after a chat opens, attach the document with the 📎 button.";
+}
+
+// Copy the image to the clipboard as PNG (the only image type browsers can copy)
+$("copyImg").onclick = async () => {
+  if (!attachment || attachment.kind !== "image") return;
+  try {
+    const png = attachment.file.type === "image/png" ? attachment.file : await new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const cv = document.createElement("canvas");
+        cv.width = img.naturalWidth; cv.height = img.naturalHeight;
+        cv.getContext("2d").drawImage(img, 0, 0);
+        cv.toBlob(b => b ? resolve(b) : reject(new Error("Could not convert image")), "image/png");
+      };
+      img.onerror = () => reject(new Error("Could not read image"));
+      img.src = attachment.url;
+    });
+    await navigator.clipboard.write([new ClipboardItem({ "image/png": png })]);
+    $("copyImg").textContent = "Copied ✓";
+    setTimeout(() => $("copyImg").textContent = "Copy image", 1500);
+  } catch (e) { alert("Could not copy the image: " + e.message); }
+};
+
+// Upload the file once (API mode) and return the media object for /api/send
+async function mediaForApi() {
+  const a = currentAttachment();
+  if (!a) return null;
+  if (a.source === "link") {
+    if (!/^https:\/\//i.test(a.link)) throw new Error("The attachment link must start with https://");
+    return { kind: a.kind, link: a.link, filename: a.name };
+  }
+  if (!attachment.mediaId) {
+    $("stats").textContent = `Uploading ${attachment.file.name}…`;
+    const r = await (await fetch("/api/upload", {
+      method: "POST",
+      headers: { "Content-Type": attachment.file.type || "application/octet-stream", "X-Filename": encodeURIComponent(attachment.file.name) },
+      body: attachment.file,
+    })).json();
+    if (!r.ok) throw new Error("Upload failed: " + r.error);
+    attachment.mediaId = r.id;
+  }
+  return { kind: attachment.kind, id: attachment.mediaId, filename: attachment.file.name };
+}
+
+// ---------- Mode tabs ----------
+$("modeTabs").addEventListener("click", (e) => {
+  const m = e.target.dataset.mode; if (!m) return;
+  mode = m;
+  [...$("modeTabs").children].forEach(b => b.classList.toggle("active", b.dataset.mode === m));
+  $("apiOpts").classList.toggle("hidden", m !== "api");
+  $("manualControls").classList.toggle("hidden", m !== "manual");
+  $("apiControls").classList.toggle("hidden", m !== "api");
+  $("textBlock").classList.toggle("hidden", m === "api" && $("apiType").value === "template");
+  render();
+});
+
+// ---------- Manual mode ----------
+function openChat(i) {
+  const c = contacts[i]; if (!c) return;
+  const text = encodeURIComponent(manualText(c));
+  const url = $("linkType").value === "web"
+    ? `https://web.whatsapp.com/send?phone=${c.phone}&text=${text}`
+    : `https://wa.me/${c.phone}?text=${text}`;
+  window.open(url, "whatsapp_chat");
+  c.status = "sent"; c.note = "opened manually";
+  render();
+}
+$("openNext").onclick = () => {
+  const i = contacts.findIndex(c => c.status === "pending");
+  if (i < 0) { alert(contacts.length ? "All contacts done." : "Load contacts first."); return; }
+  openChat(i);
+};
+
+// ---------- API mode ----------
+let running = false;
+
+// Sleep that wakes early when Stop is pressed, showing a countdown
+async function wait(ms, label) {
+  const end = Date.now() + ms;
+  while (!stopFlag && Date.now() < end) {
+    $("waitInfo").textContent = `${label} ${Math.ceil((end - Date.now()) / 1000)}s…`;
+    await new Promise(r => setTimeout(r, Math.min(250, end - Date.now())));
+  }
+  $("waitInfo").textContent = "";
+}
+
+// Random gap between min and max seconds
+function gapMs() {
+  let a = Math.max(1, Number($("delayMin").value) || 1);
+  let b = Math.max(1, Number($("delayMax").value) || a);
+  if (b < a) [a, b] = [b, a];
+  return (a + Math.random() * (b - a)) * 1000;
+}
+
+// Problem with the current message setup, or null if it's ready to send
+function messageProblem() {
+  if (!contacts.length) return "Load contacts first.";
+  const isTpl = $("apiType").value === "template";
+  if (isTpl && !$("tplName").value.trim()) return "Enter a template name.";
+  if (!isTpl && !currentAttachment() && !$("msg").value.trim()) return "Write a message or add an attachment.";
+  return null;
+}
+
+// Send the broadcast now from this page
+async function runBroadcast() {
+  const fail = (msg) => alert(msg);
+  if (running) return;
+  const problem = messageProblem();
+  if (problem) return fail(problem);
+  const todo = contacts.filter(c => c.status === "pending" || c.status === "failed");
+  if (!todo.length) return fail("Nothing to send.");
+  if (!confirm(`Send to ${todo.length} contact(s) via Cloud API?`)) return;
+
+  running = true; stopFlag = false;
+  $("startBtn").disabled = true; $("stopBtn").disabled = false;
+  let media = null;
+  try { media = await mediaForApi(); }
+  catch (e) { running = false; $("startBtn").disabled = false; $("stopBtn").disabled = true; render(); return fail(e.message); }
+  const batchSize = Math.max(0, Number($("batchSize").value) || 0);
+  const batchPause = Math.max(0, Number($("batchPause").value) || 0) * 1000;
+
+  for (let k = 0; k < todo.length && !stopFlag; k++) {
+    const c = todo[k];
+    c.status = "sending"; c.note = ""; render();
+    const body = isTpl
+      ? { to: c.phone, type: "template", template: { name: $("tplName").value.trim(), language: $("tplLang").value.trim(), params: tplParams(c) } }
+      : { to: c.phone, type: "text", text: fill($("msg").value, c) };
+    if (media) body.media = media;
+    try {
+      const r = await (await fetch("/api/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })).json();
+      c.status = r.ok ? "sent" : "failed"; c.note = r.ok ? (r.id || "") : r.error;
+    } catch (e) { c.status = "failed"; c.note = e.message; }
+    render();
+    if (k < todo.length - 1 && !stopFlag) {
+      if (batchSize && batchPause && (k + 1) % batchSize === 0) await wait(batchPause, `Batch pause after ${k + 1} messages:`);
+      else await wait(gapMs(), "Next message in");
+    }
+  }
+  contacts.forEach(c => { if (c.status === "sending") c.status = "pending"; });
+  running = false;
+  $("startBtn").disabled = false; $("stopBtn").disabled = true; render();
+}
+$("startBtn").onclick = () => runBroadcast();
+$("stopBtn").onclick = () => { stopFlag = true; $("stopBtn").disabled = true; };
+
+// ---------- Server schedule ----------
+$("schedType").addEventListener("change", () => {
+  const daily = $("schedType").value === "daily";
+  $("schedTime").classList.toggle("hidden", !daily);
+  $("schedEvery").classList.toggle("hidden", daily);
+});
+
+const api = async (url, opts) => (await fetch(url, opts)).json();
+
+// Save contacts + message + attachment + interval as the server's schedule
+$("schedSave").onclick = async () => {
+  const problem = messageProblem();
+  if (problem) return alert(problem);
+  const list = contacts.filter(c => c.status !== "skipped");
+  if (!list.length) return alert("Every contact is skipped.");
+  const isTpl = $("apiType").value === "template";
+  const a = currentAttachment();
+  const btn = $("schedSave");
+  btn.disabled = true;
+  try {
+    let media = null;
+    if (a?.source === "file") {
+      btn.textContent = "Uploading attachment…";
+      const r = await api("/api/schedule/media", {
+        method: "POST",
+        headers: { "Content-Type": attachment.file.type || "application/octet-stream", "X-Filename": encodeURIComponent(attachment.file.name) },
+        body: attachment.file,
+      });
+      if (!r.ok) throw new Error(r.error);
+      media = { source: "file" };
+    } else if (a?.source === "link") {
+      media = { source: "link", kind: a.kind, link: a.link, filename: a.name };
+    }
+    btn.textContent = "Saving…";
+    const r = await api("/api/schedule", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        schedule: { type: $("schedType").value, time: $("schedTime").value, every: Number($("schedEvery").value) },
+        interval: { min: $("delayMin").value, max: $("delayMax").value, batchSize: $("batchSize").value, batchPause: $("batchPause").value },
+        message: isTpl ? { type: "template", template: { name: $("tplName").value.trim(), language: $("tplLang").value.trim() } } : { type: "text" },
+        media,
+        contacts: list.map(c => ({ phone: c.phone, name: c.data.name || "", text: fill($("msg").value, c), params: isTpl ? tplParams(c) : [] })),
+      }),
+    });
+    if (!r.ok) throw new Error(r.error);
+    renderServer(r.status);
+  } catch (e) {
+    alert("Could not save the schedule: " + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = "Save schedule to server";
+  }
+};
+
+const schedText = (s) => s.type === "daily" ? `every day at ${s.time}` : `every ${s.every} ${s.type === "hours" ? "hour" : "minute"}${s.every > 1 ? "s" : ""}`;
+
+function renderServer(st) {
+  const box = $("srvBox");
+  box.classList.toggle("hidden", !st.exists);
+  if (!st.exists) { box.innerHTML = ""; return; }
+  const what = st.message.type === "template" ? `template “${esc(st.message.template.name)}”` : "free text";
+  const att = st.media ? ` · ${st.media.kind === "image" ? "🖼" : "📄"} ${esc(st.media.filename)}` : "";
+  let state;
+  if (st.running && st.progress) {
+    const p = st.progress;
+    state = `<span class="st-sending">Sending: ${p.done}/${p.total} (sent ${p.sent}, failed ${p.failed})${p.waitSeconds ? ` · ${esc(p.waitLabel || "")} ${p.waitSeconds}s` : ""}</span>`;
+  } else if (st.enabled) {
+    state = `<span class="st-sent">Active</span> · next run ${new Date(st.nextRunAt).toLocaleString()}`;
+  } else {
+    state = `<span class="st-skipped">Paused</span>`;
+  }
+  box.innerHTML = `
+    <div class="head"><b>Saved schedule</b> ${state}</div>
+    <div class="stats">${st.contactsCount} contacts · ${what}${att} · ${schedText(st.schedule)} · gap ${st.interval.min}–${st.interval.max}s${st.interval.batchSize ? `, pause ${st.interval.batchPause}s every ${st.interval.batchSize}` : ""}</div>
+    ${st.apiConfigured ? "" : `<div class="st-failed" style="margin-top:4px">Cloud API is not configured on the server, so runs will be skipped.</div>`}
+    <div class="row" style="margin-top:8px">
+      ${st.enabled ? `<button data-act="pause">Pause</button>` : `<button data-act="resume">Resume</button>`}
+      <button data-act="run-now" ${st.running ? "disabled" : ""}>Run now</button>
+      <button data-act="stop" class="danger" ${st.running ? "" : "disabled"}>Stop run</button>
+      <button data-act="export" ${st.lastResults.length ? "" : "disabled"}>Export last run</button>
+      <button data-act="delete" class="danger" ${st.running ? "disabled" : ""}>Delete</button>
+    </div>
+    <div class="runs">${st.runs.map(r => `${new Date(r.at).toLocaleString()} — ${esc(r.text)}`).join("<br>")}</div>`;
+  lastServerStatus = st;
+}
+
+let lastServerStatus = null;
+$("srvBox").addEventListener("click", async (e) => {
+  const act = e.target.dataset.act;
+  if (!act) return;
+  if (act === "export") return exportServerResults();
+  if (act === "delete" && !confirm("Delete the saved schedule from the server?")) return;
+  if (act === "run-now" && !confirm(`Send to all ${lastServerStatus.contactsCount} saved contacts now?`)) return;
+  const r = await api(`/api/schedule/${act}`, { method: "POST" });
+  if (!r.ok) alert(r.error);
+  pollServer();
+});
+
+function exportServerResults() {
+  const rows = lastServerStatus?.lastResults || [];
+  const q = (s) => `"${String(s ?? "").replace(/"/g, '""')}"`;
+  const lines = [["phone", "name", "status", "note"].join(","), ...rows.map(r => [r.phone, r.name, r.status, r.note].map(q).join(","))];
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/csv" }));
+  a.download = `whatsapp-scheduled-results-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+}
+
+async function pollServer() {
+  try { renderServer(await api("/api/schedule")); } catch { /* server not reachable */ }
+}
+pollServer();
+setInterval(pollServer, 2000);
+
+// ---------- Shared ----------
+function resetStatus() { if (confirm("Reset every contact to pending?")) { contacts.forEach(c => { c.status = "pending"; c.note = ""; }); render(); } }
+$("resetStatus").onclick = resetStatus; $("resetStatus2").onclick = resetStatus;
+
+function exportCsv() {
+  if (!contacts.length) return;
+  const q = (s) => `"${String(s ?? "").replace(/"/g, '""')}"`;
+  const cols = [...headers.filter(h => h !== "phone"), "status", "note"];
+  const lines = [["phone", ...cols].map(q).join(",")];
+  contacts.forEach(c => lines.push([c.phone, ...cols.map(h => h === "status" ? c.status : h === "note" ? c.note : c.data[h])].map(q).join(",")));
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/csv" }));
+  a.download = `whatsapp-results-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+}
+$("exportCsv").onclick = exportCsv; $("exportCsv2").onclick = exportCsv;
+
+render();
+</script>
+</body>
+</html>
