@@ -742,6 +742,11 @@ let campaignsById = {};
 const openHistory = new Set();
 
 function campaignState(c) {
+  if (c.running && c.stopRequested) return `<span class="st-sending">${c.stopRequested === "cancel" ? "Cancelling" : "Stopping"}…</span>`;
+  if (c.held && c.progress) {
+    const p = c.progress;
+    return `<span class="st-failed">Stopped at ${p.done}/${p.total}</span> (sent ${p.sent}, failed ${p.failed}) · Resume sending continues with contact ${p.done + 1}`;
+  }
   if (c.running && c.progress) {
     const p = c.progress;
     return `<span class="st-sending">Sending ${p.done}/${p.total} (sent ${p.sent}, failed ${p.failed})${p.waitingForCron ? " · paused at the time limit, continues on the next cron call" : p.waitSeconds ? ` · ${esc(p.waitLabel || "")} ${p.waitSeconds}s` : ""}</span>`;
@@ -763,18 +768,30 @@ function renderCampaigns(st) {
   box.innerHTML = warn + st.campaigns.map(c => {
     const what = c.message.type === "template" ? `template “${esc(c.message.template.name)}”` : "free text";
     const att = c.media ? ` · ${c.media.kind === "image" ? "🖼" : "📄"} ${esc(c.media.filename)}` : "";
-    const busy = c.running || c.queued;
+    // Sending controls depend on the run's state: idle, queued, sending, or stopped (held)
+    const id = c.id;
+    const runButtons = c.held
+      ? `<button class="primary" data-act="resume-run" data-id="${id}">Resume sending</button>
+         <button class="danger" data-act="cancel" data-id="${id}">Cancel</button>`
+      : c.running
+        ? `<button data-act="stop" data-id="${id}" ${c.stopRequested ? "disabled" : ""}>Stop</button>
+           <button class="danger" data-act="cancel" data-id="${id}" ${c.stopRequested ? "disabled" : ""}>Cancel</button>`
+        : c.queued
+          ? `<button class="danger" data-act="cancel" data-id="${id}">Cancel</button>`
+          : `<button class="primary" data-act="run-now" data-id="${id}">Start now</button>`;
+    const scheduleButton = c.enabled
+      ? `<button data-act="pause" data-id="${id}">Pause schedule</button>`
+      : `<button data-act="resume" data-id="${id}" ${c.finished && c.schedule.type === "once" ? "disabled title=\"One-time campaign already sent\"" : ""}>Resume schedule</button>`;
     return `
     <div class="srv">
       <div class="head"><b>${esc(c.name)}</b> ${campaignState(c)}</div>
       <div class="stats">${c.contactsCount} contacts · ${what}${att} · ${schedText(c.schedule)} · gap ${c.interval.min}–${c.interval.max}s${c.interval.batchSize ? `, pause ${c.interval.batchPause}s every ${c.interval.batchSize}` : ""}</div>
       ${c.sampleText ? `<div class="stats" style="margin-top:2px">“${esc(c.sampleText.slice(0, 90))}${c.sampleText.length > 90 ? "…" : ""}”</div>` : ""}
       <div class="row" style="margin-top:8px">
-        ${c.enabled ? `<button data-act="pause" data-id="${c.id}">Pause</button>` : `<button data-act="resume" data-id="${c.id}" ${c.finished && c.schedule.type === "once" ? "disabled" : ""}>Resume</button>`}
-        <button data-act="run-now" data-id="${c.id}" ${busy ? "disabled" : ""}>Run now</button>
-        <button data-act="stop" data-id="${c.id}" class="danger" ${busy ? "" : "disabled"}>Stop</button>
-        <button data-act="export" data-id="${c.id}" ${c.lastResultsCount ? "" : "disabled"}>Export last run</button>
-        <button data-act="delete" data-id="${c.id}" class="danger" ${c.running ? "disabled" : ""}>Delete</button>
+        ${runButtons}
+        ${scheduleButton}
+        <button data-act="export" data-id="${id}" ${c.lastResultsCount ? "" : "disabled"}>Export last run</button>
+        <button data-act="delete" data-id="${id}" class="danger" ${c.running ? "disabled title=\"Stop or cancel the run first\"" : ""}>Delete</button>
       </div>
       <details data-id="${c.id}" ${openHistory.has(c.id) ? "open" : ""}><summary class="stats" style="cursor:pointer;margin-top:8px">History</summary>
         <div class="runs">${c.runs.map(r => `${new Date(r.at).toLocaleString()} — ${esc(r.text)}`).join("<br>")}</div>
@@ -795,9 +812,12 @@ $("campList").addEventListener("click", async (e) => {
   if (act === "export") return exportCampaignResults(id);
   if (act === "delete" && !confirm(`Delete the campaign “${c?.name}”?`)) return;
   if (act === "run-now" && !confirm(`Send “${c?.name}” to its ${c?.contactsCount} contacts now?`)) return;
-  // On Vercel "Run now" keeps the request open while sending, so don't wait for it
+  if (act === "cancel" && !confirm(c?.held || c?.running
+    ? `Cancel “${c?.name}”? Contacts not reached yet in this run won't get the message.`
+    : `Cancel the queued start of “${c?.name}”?`)) return;
+  // On Vercel, starting or resuming keeps the request open while sending, so don't wait for it
   const req = api(`/api/campaigns/${id}/${act}`, { method: "POST" }).then(r => { if (!r.ok) alert(r.error); pollServer(); });
-  if (act === "run-now") setTimeout(pollServer, 1000); else await req;
+  if (act === "run-now" || act === "resume-run") setTimeout(pollServer, 1000); else await req;
 });
 
 async function exportCampaignResults(id) {

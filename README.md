@@ -55,8 +55,28 @@ You can save as many campaigns as you like.
    **Once at** a date and time, **Every day at** a time, **Every N hours** or **Every N minutes**.
 3. Click **Save campaign**. Repeat with other contacts and messages for more campaigns.
 
-Each campaign has its own card showing its status, next run, live progress, and a **History** of its last 20 runs, with buttons for
-**Pause / Resume**, **Run now**, **Stop**, **Export last run** (CSV of each contact's result) and **Delete**.
+Each campaign has its own card showing its status, next run, live progress and a **History** of the last 20 events.
+
+| Button | What it does |
+|---|---|
+| **Start now** | Sends the campaign to all its contacts now. If another campaign is sending, it is queued and starts right after. |
+| **Stop** | Stops sending but keeps its place (for example "Stopped at 20/50"). |
+| **Resume sending** | Continues a stopped run with the next contact. Nobody gets the message twice. |
+| **Cancel** | Ends the run: contacts not reached yet don't get it. Also cancels a queued Start now. |
+| **Pause schedule** | No new scheduled runs. A run that is sending keeps going (use Stop for that). |
+| **Resume schedule** | Turns the schedule back on and works out the next run time. |
+| **Export last run** | CSV with each contact's result (sent / failed and the reason). |
+| **Delete** | Removes the campaign. Stop or cancel a sending run first. |
+
+While a run is stopped, the campaign's scheduled runs are skipped (and noted in History) until you resume sending or cancel it.
+
+**Where campaigns are saved**
+- **On Vercel:** in your Upstash Redis database, under keys starting with `wa:`
+  (`wa:campaigns` = the list, `wa:c:<id>` = a campaign, `wa:m:<id>` = its attachment, `wa:r:<id>` = a run in progress).
+  You can browse them in the Upstash console (Data Browser).
+- **On your computer:** in the `data/` folder next to `server.js`
+  (`campaigns.json`, `c_<id>.json`, `m_<id>.json`, `r_<id>.json`).
+- The browser itself keeps nothing; you can open the site on another device and see the same campaigns.
 
 - **One at a time:** only one campaign sends at a time. If several are due together, they go one after another,
   earliest first. **Run now** on a campaign while another is sending queues it to start next.
