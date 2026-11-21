@@ -201,20 +201,25 @@ This is a quick update from our team. Reply STOP if you don't want these message
       <div class="hint">Only contacts whose status is not “sent” are sent. Only message people who agreed to hear from you.</div>
 
       <div class="sched">
-        <h3>Repeat on a schedule (runs on the server)</h3>
-        <div class="hint">Saves the contacts (except skipped ones), message, attachment and interval above to the server, which sends them again on each run. You can close this page; only the server has to keep running.</div>
+        <h3>Campaigns (sent automatically by the server)</h3>
+        <div class="hint">Saves the contacts (except skipped ones), message, attachment and gaps above as a named campaign.
+          Save as many campaigns as you like, each with its own contacts, message and time. The server sends them on schedule,
+          one campaign at a time, so you can close this page.</div>
         <div class="hint" id="platformHint"></div>
         <div class="row" style="margin-top:8px">
+          <input id="campName" class="grow" placeholder="Campaign name, e.g. Diwali offer" maxlength="80" />
           <select id="schedType" style="width:auto">
+            <option value="once">Once at</option>
             <option value="daily">Every day at</option>
             <option value="hours">Every N hours</option>
             <option value="minutes">Every N minutes</option>
           </select>
-          <input id="schedTime" type="time" value="09:00" style="width:auto" />
+          <input id="schedAt" type="datetime-local" style="width:auto" />
+          <input id="schedTime" type="time" value="09:00" class="hidden" style="width:auto" />
           <input id="schedEvery" type="number" min="1" value="6" class="hidden" style="width:90px" />
-          <button class="primary" id="schedSave">Save schedule to server</button>
+          <button class="primary" id="campSave">Save campaign</button>
         </div>
-        <div id="srvBox" class="srv hidden"></div>
+        <div id="campList"></div>
       </div>
     </div>
 
@@ -652,45 +657,64 @@ async function runBroadcast() {
 $("startBtn").onclick = () => runBroadcast();
 $("stopBtn").onclick = () => { stopFlag = true; $("stopBtn").disabled = true; };
 
-// ---------- Server schedule ----------
-$("schedType").addEventListener("change", () => {
-  const daily = $("schedType").value === "daily";
-  $("schedTime").classList.toggle("hidden", !daily);
-  $("schedEvery").classList.toggle("hidden", daily);
-});
+// ---------- Campaigns (server) ----------
+function localInputValue(d) {
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+$("schedAt").value = localInputValue(new Date(Date.now() + 15 * 60000));
+
+function showScheduleFields() {
+  const t = $("schedType").value;
+  $("schedAt").classList.toggle("hidden", t !== "once");
+  $("schedTime").classList.toggle("hidden", t !== "daily");
+  $("schedEvery").classList.toggle("hidden", t !== "hours" && t !== "minutes");
+}
+$("schedType").addEventListener("change", showScheduleFields);
+showScheduleFields();
 
 const api = async (url, opts) => (await fetch(url, opts)).json();
 
-// Save contacts + message + attachment + interval as the server's schedule
-$("schedSave").onclick = async () => {
+// Save what the page shows now as a new campaign on the server
+$("campSave").onclick = async () => {
+  const name = $("campName").value.trim();
+  if (!name) { $("campName").focus(); return alert("Give the campaign a name."); }
   const problem = messageProblem();
   if (problem) return alert(problem);
   const list = contacts.filter(c => c.status !== "skipped");
   if (!list.length) return alert("Every contact is skipped.");
+  const type = $("schedType").value;
+  let at = null;
+  if (type === "once") {
+    const t = new Date($("schedAt").value);
+    if (!(t.getTime() > Date.now())) return alert("Pick a send time in the future.");
+    at = t.toISOString();
+  }
   const isTpl = $("apiType").value === "template";
   const a = currentAttachment();
-  const btn = $("schedSave");
+  const btn = $("campSave");
   btn.disabled = true;
   try {
     let media = null;
     if (a?.source === "file") {
       btn.textContent = "Uploading attachment…";
-      const r = await api("/api/schedule/media", {
+      const r = await api("/api/campaigns/upload", {
         method: "POST",
         headers: { "Content-Type": attachment.file.type || "application/octet-stream", "X-Filename": encodeURIComponent(attachment.file.name) },
         body: attachment.file,
       });
       if (!r.ok) throw new Error(r.error);
-      media = { source: "file" };
+      media = { source: "upload", uploadId: r.uploadId };
     } else if (a?.source === "link") {
       media = { source: "link", kind: a.kind, link: a.link, filename: a.name };
     }
     btn.textContent = "Saving…";
-    const r = await api("/api/schedule", {
+    const r = await api("/api/campaigns", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        schedule: { type: $("schedType").value, time: $("schedTime").value, every: Number($("schedEvery").value), tz: Intl.DateTimeFormat().resolvedOptions().timeZone },
+        name,
+        schedule: { type, at, time: $("schedTime").value, every: Number($("schedEvery").value), tz: Intl.DateTimeFormat().resolvedOptions().timeZone },
         interval: { min: $("delayMin").value, max: $("delayMax").value, batchSize: $("batchSize").value, batchPause: $("batchPause").value },
         message: isTpl ? { type: "template", template: { name: $("tplName").value.trim(), language: $("tplLang").value.trim() } } : { type: "text" },
         media,
@@ -698,74 +722,100 @@ $("schedSave").onclick = async () => {
       }),
     });
     if (!r.ok) throw new Error(r.error);
-    renderServer(r.status);
+    $("campName").value = "";
+    renderCampaigns(r.status);
   } catch (e) {
-    alert("Could not save the schedule: " + e.message);
+    alert("Could not save the campaign: " + e.message);
   } finally {
-    btn.disabled = false; btn.textContent = "Save schedule to server";
+    btn.disabled = false; btn.textContent = "Save campaign";
   }
 };
 
-const schedText = (s) => s.type === "daily" ? `every day at ${s.time}` : `every ${s.every} ${s.type === "hours" ? "hour" : "minute"}${s.every > 1 ? "s" : ""}`;
-
-function renderServer(st) {
-  const box = $("srvBox");
-  box.classList.toggle("hidden", !st.exists);
-  if (!st.exists) { box.innerHTML = ""; return; }
-  const what = st.message.type === "template" ? `template “${esc(st.message.template.name)}”` : "free text";
-  const att = st.media ? ` · ${st.media.kind === "image" ? "🖼" : "📄"} ${esc(st.media.filename)}` : "";
-  let state;
-  if (st.running && st.progress) {
-    const p = st.progress;
-    state = `<span class="st-sending">Sending: ${p.done}/${p.total} (sent ${p.sent}, failed ${p.failed})${p.waitingForCron ? " · paused at the time limit, continues on the next cron call" : p.waitSeconds ? ` · ${esc(p.waitLabel || "")} ${p.waitSeconds}s` : ""}</span>`;
-  } else if (st.enabled) {
-    state = `<span class="st-sent">Active</span> · next run ${new Date(st.nextRunAt).toLocaleString()}`;
-  } else {
-    state = `<span class="st-skipped">Paused</span>`;
-  }
-  box.innerHTML = `
-    <div class="head"><b>Saved schedule</b> ${state}</div>
-    <div class="stats">${st.contactsCount} contacts · ${what}${att} · ${schedText(st.schedule)} · gap ${st.interval.min}–${st.interval.max}s${st.interval.batchSize ? `, pause ${st.interval.batchPause}s every ${st.interval.batchSize}` : ""}</div>
-    ${st.apiConfigured ? "" : `<div class="st-failed" style="margin-top:4px">Cloud API is not configured on the server, so runs will be skipped.</div>`}
-    <div class="row" style="margin-top:8px">
-      ${st.enabled ? `<button data-act="pause">Pause</button>` : `<button data-act="resume">Resume</button>`}
-      <button data-act="run-now" ${st.running ? "disabled" : ""}>Run now</button>
-      <button data-act="stop" class="danger" ${st.running ? "" : "disabled"}>Stop run</button>
-      <button data-act="export" ${st.lastResults.length ? "" : "disabled"}>Export last run</button>
-      <button data-act="delete" class="danger" ${st.running ? "disabled" : ""}>Delete</button>
-    </div>
-    <div class="runs">${st.runs.map(r => `${new Date(r.at).toLocaleString()} — ${esc(r.text)}`).join("<br>")}</div>`;
-  lastServerStatus = st;
+function schedText(s) {
+  if (s.type === "once") return `once at ${new Date(s.at).toLocaleString()}`;
+  if (s.type === "daily") return `every day at ${s.time}`;
+  return `every ${s.every} ${s.type === "hours" ? "hour" : "minute"}${s.every > 1 ? "s" : ""}`;
 }
 
-let lastServerStatus = null;
-$("srvBox").addEventListener("click", async (e) => {
-  const act = e.target.dataset.act;
-  if (!act) return;
-  if (act === "export") return exportServerResults();
-  if (act === "delete" && !confirm("Delete the saved schedule from the server?")) return;
-  if (act === "run-now" && !confirm(`Send to all ${lastServerStatus.contactsCount} saved contacts now?`)) return;
+let campaignsById = {};
+const openHistory = new Set();
+
+function campaignState(c) {
+  if (c.running && c.progress) {
+    const p = c.progress;
+    return `<span class="st-sending">Sending ${p.done}/${p.total} (sent ${p.sent}, failed ${p.failed})${p.waitingForCron ? " · paused at the time limit, continues on the next cron call" : p.waitSeconds ? ` · ${esc(p.waitLabel || "")} ${p.waitSeconds}s` : ""}</span>`;
+  }
+  if (c.queued) return `<span class="st-sending">Queued: starts when the campaign that is sending now finishes</span>`;
+  if (c.finished) return `<span class="st-skipped">Finished</span>`;
+  if (c.enabled && c.nextRunAt) return `<span class="st-sent">Active</span> · next run ${new Date(c.nextRunAt).toLocaleString()}`;
+  return `<span class="st-skipped">Paused</span>`;
+}
+
+function renderCampaigns(st) {
+  const box = $("campList");
+  campaignsById = Object.fromEntries((st.campaigns || []).map(c => [c.id, c]));
+  if (!st.campaigns || !st.campaigns.length) {
+    box.innerHTML = `<div class="hint" style="margin-top:10px">No campaigns yet.</div>`;
+    return;
+  }
+  const warn = st.apiConfigured ? "" : `<div class="st-failed" style="margin-top:10px">Cloud API is not configured on the server, so campaigns are skipped instead of sent.</div>`;
+  box.innerHTML = warn + st.campaigns.map(c => {
+    const what = c.message.type === "template" ? `template “${esc(c.message.template.name)}”` : "free text";
+    const att = c.media ? ` · ${c.media.kind === "image" ? "🖼" : "📄"} ${esc(c.media.filename)}` : "";
+    const busy = c.running || c.queued;
+    return `
+    <div class="srv">
+      <div class="head"><b>${esc(c.name)}</b> ${campaignState(c)}</div>
+      <div class="stats">${c.contactsCount} contacts · ${what}${att} · ${schedText(c.schedule)} · gap ${c.interval.min}–${c.interval.max}s${c.interval.batchSize ? `, pause ${c.interval.batchPause}s every ${c.interval.batchSize}` : ""}</div>
+      ${c.sampleText ? `<div class="stats" style="margin-top:2px">“${esc(c.sampleText.slice(0, 90))}${c.sampleText.length > 90 ? "…" : ""}”</div>` : ""}
+      <div class="row" style="margin-top:8px">
+        ${c.enabled ? `<button data-act="pause" data-id="${c.id}">Pause</button>` : `<button data-act="resume" data-id="${c.id}" ${c.finished && c.schedule.type === "once" ? "disabled" : ""}>Resume</button>`}
+        <button data-act="run-now" data-id="${c.id}" ${busy ? "disabled" : ""}>Run now</button>
+        <button data-act="stop" data-id="${c.id}" class="danger" ${busy ? "" : "disabled"}>Stop</button>
+        <button data-act="export" data-id="${c.id}" ${c.lastResultsCount ? "" : "disabled"}>Export last run</button>
+        <button data-act="delete" data-id="${c.id}" class="danger" ${c.running ? "disabled" : ""}>Delete</button>
+      </div>
+      <details data-id="${c.id}" ${openHistory.has(c.id) ? "open" : ""}><summary class="stats" style="cursor:pointer;margin-top:8px">History</summary>
+        <div class="runs">${c.runs.map(r => `${new Date(r.at).toLocaleString()} — ${esc(r.text)}`).join("<br>")}</div>
+      </details>
+    </div>`;
+  }).join("");
+}
+
+$("campList").addEventListener("toggle", (e) => {
+  const id = e.target.dataset?.id;
+  if (id) e.target.open ? openHistory.add(id) : openHistory.delete(id);
+}, true);
+
+$("campList").addEventListener("click", async (e) => {
+  const { act, id } = e.target.dataset;
+  if (!act || !id) return;
+  const c = campaignsById[id];
+  if (act === "export") return exportCampaignResults(id);
+  if (act === "delete" && !confirm(`Delete the campaign “${c?.name}”?`)) return;
+  if (act === "run-now" && !confirm(`Send “${c?.name}” to its ${c?.contactsCount} contacts now?`)) return;
   // On Vercel "Run now" keeps the request open while sending, so don't wait for it
-  const req = api(`/api/schedule/${act}`, { method: "POST" }).then(r => { if (!r.ok) alert(r.error); pollServer(); });
+  const req = api(`/api/campaigns/${id}/${act}`, { method: "POST" }).then(r => { if (!r.ok) alert(r.error); pollServer(); });
   if (act === "run-now") setTimeout(pollServer, 1000); else await req;
 });
 
-function exportServerResults() {
-  const rows = lastServerStatus?.lastResults || [];
+async function exportCampaignResults(id) {
+  const r = await api(`/api/campaigns/${id}/results`);
+  if (!r.ok) return alert(r.error);
   const q = (s) => `"${String(s ?? "").replace(/"/g, '""')}"`;
-  const lines = [["phone", "name", "status", "note"].join(","), ...rows.map(r => [r.phone, r.name, r.status, r.note].map(q).join(","))];
+  const lines = [["phone", "name", "status", "note"].join(","), ...r.results.map(x => [x.phone, x.name, x.status, x.note].map(q).join(","))];
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/csv" }));
-  a.download = `whatsapp-scheduled-results-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `${r.name.replace(/[^\w-]+/g, "_")}-results-${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
 }
 
 async function pollServer() {
   if (!$("login").classList.contains("hidden")) return;
   try {
-    const r = await fetch("/api/schedule");
-    if (r.ok) renderServer(await r.json());
-    else if (r.status === 503) $("srvBox").classList.add("hidden");
+    const r = await fetch("/api/campaigns");
+    if (r.ok) renderCampaigns(await r.json());
+    else if (r.status === 503) $("campList").innerHTML = "";
   } catch { /* server not reachable */ }
 }
 pollServer();

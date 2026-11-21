@@ -15,7 +15,7 @@ if (fs.existsSync(envPath)) {
   }
 }
 
-const { handleApi, cronTick, apiConfigured, store, log, authRequired } = require("./lib/app");
+const { handleApi, cronTick, apiConfigured, store, log, authRequired, campaignIds } = require("./lib/app");
 
 const PORT = Number(process.env.PORT || 3000);
 // Listen on localhost only unless HOST is set (e.g. HOST=0.0.0.0 on a VPS, together with APP_PASSWORD)
@@ -51,6 +51,6 @@ server.listen(PORT, HOST, async () => {
   log(`WhatsApp sender running at http://localhost:${PORT}`);
   log(apiConfigured() ? "Cloud API: configured" : "Cloud API: NOT configured (manual link mode still works)");
   log(`Storage: ${store.kind}${authRequired ? ", password login on" : ""}`);
-  const job = await store.get("job");
-  if (job) log(`Schedule: ${job.enabled ? "active, next run " + new Date(job.nextRunAt).toLocaleString() : "paused"} (${job.contacts.length} contacts)`);
+  const ids = await campaignIds();
+  log(`Campaigns: ${ids.length}`);
 });
