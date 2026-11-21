@@ -83,7 +83,7 @@ In the Message card, pick a file or paste a public `https://` link to one.
 
 ## Deploy on Vercel
 
-Vercel runs the page as static files and the API as one serverless function (`api/index.js`).
+Vercel runs the page as static files and the API as one serverless function (`api/[...path].js`, which receives every `/api/*` request).
 Because Vercel has no always-on server and no lasting disk, three things are different:
 
 - **Password login.** The site is public, so it does nothing until you set `APP_PASSWORD`.

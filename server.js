@@ -1,5 +1,5 @@
 // Local server: serves the page from public/ and the API from lib/app.js.
-// Run with: npm start   (on Vercel, api/index.js is used instead)
+// Run with: npm start   (on Vercel, api/[...path].js is used instead)
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
