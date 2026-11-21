@@ -6,223 +6,390 @@
 <title>WhatsApp Bulk Sender</title>
 <style>
   :root {
-    --bg: #f4f6f5; --card: #ffffff; --text: #1b2421; --muted: #66736e; --line: #dfe5e2;
-    --accent: #128c4a; --accent-soft: #e3f4ea; --err: #c0392b; --err-soft: #fbe9e7; --warn: #b7791f;
+    --bg: #f3f5f4; --card: #ffffff; --card-2: #f8faf9; --text: #17201c; --muted: #66736d; --line: #e3e8e5;
+    --accent: #0f9d58; --accent-strong: #0b7d46; --accent-soft: #e4f6ec; --on-accent: #ffffff;
+    --err: #c43d2f; --err-soft: #fdecea; --warn: #a86a12; --warn-soft: #fdf3e1;
+    --chat-bg: #efeae2; --bubble: #d9fdd3; --bubble-text: #111b21; --chat-head: #f0f2f5;
+    --shadow: 0 1px 2px rgba(16, 24, 20, .05), 0 4px 16px rgba(16, 24, 20, .05);
+    --radius: 14px;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #101513; --card: #181f1c; --text: #e6ece9; --muted: #93a19b; --line: #2a3430;
-      --accent: #2fbf71; --accent-soft: #173326; --err: #ff7b6b; --err-soft: #3a1f1b; --warn: #e0a84a;
+      --bg: #0e1412; --card: #161d1a; --card-2: #1b2420; --text: #e5ece8; --muted: #93a39c; --line: #26312c;
+      --accent: #25c16f; --accent-strong: #3dd683; --accent-soft: #15301f; --on-accent: #06130b;
+      --err: #ff7f70; --err-soft: #3a1d19; --warn: #e8b05a; --warn-soft: #33270f;
+      --chat-bg: #0b141a; --bubble: #005c4b; --bubble-text: #e9edef; --chat-head: #202c33;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.25);
     }
   }
   * { box-sizing: border-box; }
-  body { margin: 0; font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
-  header { padding: 18px 24px; border-bottom: 1px solid var(--line); background: var(--card); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-  header h1 { font-size: 18px; margin: 0; }
-  .badge { font-size: 12px; padding: 2px 10px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); }
-  .badge.off { background: var(--err-soft); color: var(--err); }
-  main { max-width: 1200px; margin: 0 auto; padding: 20px 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; min-width: 0; }
-  .card.wide { grid-column: 1 / -1; }
-  h2 { font-size: 15px; margin: 0 0 12px; }
-  label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 4px; }
-  input, textarea, select { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); font: inherit; }
-  textarea { resize: vertical; }
-  button { font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--text); cursor: pointer; }
-  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-  a.btn { display: inline-block; font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--text); text-decoration: none; cursor: pointer; }
-  td a.btn { padding: 4px 12px; }
-  a.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-  a.btn.disabled { opacity: .5; cursor: not-allowed; }
-  button.danger { color: var(--err); }
-  button:disabled { opacity: .5; cursor: not-allowed; }
-  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-  .row > .grow { flex: 1; min-width: 140px; }
-  .hint { font-size: 12px; color: var(--muted); margin-top: 6px; }
-  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
-  .chip { font-size: 12px; padding: 2px 8px; border-radius: 6px; background: var(--accent-soft); color: var(--accent); cursor: pointer; border: none; }
-  .preview { white-space: pre-wrap; background: var(--accent-soft); border-radius: 10px; padding: 10px 12px; margin-top: 6px; min-height: 40px; }
-  .tabs { display: flex; gap: 4px; background: var(--bg); padding: 4px; border-radius: 10px; margin-bottom: 8px; }
-  .tabs button { flex: 1; border: none; background: transparent; }
-  .tabs button.active { background: var(--card); box-shadow: 0 1px 2px rgba(0,0,0,.08); font-weight: 600; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); }
   .hidden { display: none !important; }
-  .table-wrap { overflow-x: auto; max-height: 420px; overflow-y: auto; border: 1px solid var(--line); border-radius: 8px; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
-  th { position: sticky; top: 0; background: var(--card); color: var(--muted); font-weight: 500; }
-  td.msg { white-space: normal; min-width: 220px; max-width: 360px; color: var(--muted); }
-  .st-sent { color: var(--accent); font-weight: 600; }
-  .st-failed { color: var(--err); font-weight: 600; }
-  .st-sending { color: var(--warn); }
-  .st-skipped { color: var(--muted); }
-  .progress { height: 6px; background: var(--line); border-radius: 99px; overflow: hidden; margin: 10px 0; }
-  .progress > div { height: 100%; width: 0; background: var(--accent); transition: width .2s; }
-  .stats { font-size: 13px; color: var(--muted); }
-  .num { width: 140px; }
-  .sched { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
-  .login { position: fixed; inset: 0; z-index: 10; background: var(--bg); display: grid; place-items: center; padding: 16px; }
-  .login form { width: 100%; max-width: 340px; }
-  .sched h3 { font-size: 14px; margin: 0 0 4px; }
-  .srv { margin-top: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
-  .srv .head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
-  .srv .runs { font-size: 12px; color: var(--muted); margin-top: 8px; max-height: 140px; overflow-y: auto; }
-  .att { display: flex; gap: 10px; align-items: center; margin-top: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; font-size: 13px; }
-  .att img { width: 56px; height: 56px; object-fit: cover; border-radius: 6px; }
-  .att .icon { width: 56px; height: 56px; display: grid; place-items: center; font-size: 26px; background: var(--accent-soft); border-radius: 6px; }
+
+  /* ---------- Header ---------- */
+  header { position: sticky; top: 0; z-index: 5; background: var(--card); border-bottom: 1px solid var(--line); }
+  .bar { max-width: 1180px; margin: 0 auto; padding: 10px 16px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; }
+  .brand svg { width: 30px; height: 30px; flex: none; }
+  nav.views { display: flex; gap: 4px; background: var(--bg); padding: 4px; border-radius: 999px; }
+  nav.views button { border: none; background: transparent; padding: 7px 16px; border-radius: 999px; font-weight: 600; color: var(--muted); }
+  nav.views button.active { background: var(--card); color: var(--text); box-shadow: var(--shadow); }
+  .count { display: inline-block; min-width: 20px; padding: 0 6px; margin-left: 4px; border-radius: 99px; background: var(--accent-soft); color: var(--accent-strong); font-size: 12px; }
+  .bar .right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .badge { font-size: 12px; padding: 4px 10px; border-radius: 99px; background: var(--accent-soft); color: var(--accent-strong); white-space: nowrap; }
+  .badge.off { background: var(--warn-soft); color: var(--warn); }
+
+  /* ---------- Layout ---------- */
+  main { max-width: 1180px; margin: 0 auto; padding: 20px 16px 60px; }
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; grid-template-areas: "s1 pv" "s2 pv" "s3 pv"; gap: 16px; align-items: start; }
+  #step1 { grid-area: s1; } #step2 { grid-area: s2; } #step3 { grid-area: s3; }
+  .phone-col { grid-area: pv; position: sticky; top: 76px; }
+  @media (max-width: 960px) {
+    .layout { grid-template-columns: minmax(0, 1fr); grid-template-areas: "s1" "s2" "pv" "s3"; }
+    .phone-col { position: static; }
+  }
+
+  /* ---------- Cards and steps ---------- */
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; box-shadow: var(--shadow); min-width: 0; }
+  .step-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .step-num { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: var(--on-accent); font-weight: 700; font-size: 13px; flex: none; }
+  .step-num.done { background: var(--accent-soft); color: var(--accent-strong); }
+  h2 { font-size: 16px; margin: 0; }
+  .step-head .sub { margin-left: auto; font-size: 12px; color: var(--muted); }
+  label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin: 12px 0 5px; }
+  input, textarea, select { width: 100%; padding: 9px 11px; border: 1px solid var(--line); border-radius: 10px; background: var(--card-2); color: var(--text); font: inherit; }
+  input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+  textarea { resize: vertical; }
+  button, a.btn { font: inherit; padding: 8px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--text); cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+  button:hover, a.btn:hover { border-color: var(--muted); }
+  button.primary, a.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
+  button.primary:hover, a.btn.primary:hover { background: var(--accent-strong); border-color: var(--accent-strong); }
+  button.big, a.btn.big { padding: 12px 20px; font-size: 15px; border-radius: 12px; }
+  button.danger { color: var(--err); }
+  button.link { border: none; background: none; padding: 0; color: var(--accent-strong); font-weight: 600; }
+  button:disabled, a.btn.disabled { opacity: .45; cursor: not-allowed; pointer-events: auto; }
+  a.btn.disabled { pointer-events: none; }
+  td a.btn, td button { padding: 4px 12px; font-size: 13px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .row > .grow { flex: 1; min-width: 150px; }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .sep { color: var(--line); }
+
+  /* Drop zone */
+  .drop { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 26px 16px; border: 2px dashed var(--line); border-radius: 12px; background: var(--card-2); text-align: center; cursor: pointer; transition: border-color .15s, background .15s; }
+  .drop:hover, .drop.over { border-color: var(--accent); background: var(--accent-soft); }
+  .drop .big-icon { font-size: 28px; line-height: 1; }
+  .drop b { font-size: 15px; }
+  .drop input { display: none; }
+  .links { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 10px; font-size: 13px; }
+  .links a, .links button { color: var(--accent-strong); font-weight: 600; text-decoration: none; background: none; border: none; padding: 0; }
+  .summary { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; padding: 10px 12px; border-radius: 10px; background: var(--card-2); font-size: 13px; }
+  .summary .cc { display: flex; align-items: center; gap: 6px; margin-left: auto; color: var(--muted); }
+  .summary .cc input { width: 64px; padding: 5px 8px; }
+  details.fold { margin-top: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); }
+  details.fold > summary { cursor: pointer; padding: 10px 12px; font-weight: 600; list-style: none; display: flex; align-items: center; gap: 8px; }
+  details.fold > summary::-webkit-details-marker { display: none; }
+  details.fold > summary::after { content: "▸"; margin-left: auto; color: var(--muted); transition: transform .15s; }
+  details.fold[open] > summary::after { transform: rotate(90deg); }
+  details.fold > .fold-body { padding: 0 12px 12px; }
+
+  /* Message */
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
+  .chips:not(:empty)::before { content: "Insert:"; font-size: 12px; color: var(--muted); }
+  .chip { font-size: 12px; padding: 3px 9px; border-radius: 99px; background: var(--accent-soft); color: var(--accent-strong); cursor: pointer; border: none; font-weight: 600; }
+  .att { display: flex; gap: 10px; align-items: center; font-size: 13px; }
+  .att img { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; }
+  .att .icon { width: 56px; height: 56px; display: grid; place-items: center; font-size: 26px; background: rgba(0,0,0,.06); border-radius: 8px; }
   .att .meta { min-width: 0; overflow-wrap: anywhere; }
+
+  /* Mode cards */
+  .modes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  @media (max-width: 520px) { .modes { grid-template-columns: 1fr; } }
+  .modes button { flex-direction: column; align-items: flex-start; text-align: left; gap: 2px; padding: 12px 14px; border-radius: 12px; background: var(--card-2); }
+  .modes button b { font-size: 14px; }
+  .modes button span { font-size: 12px; color: var(--muted); font-weight: 400; }
+  .modes button.active { border: 2px solid var(--accent); background: var(--accent-soft); padding: 11px 13px; }
+  .notice { margin-top: 12px; padding: 10px 12px; border-radius: 10px; background: var(--warn-soft); color: var(--warn); font-size: 13px; }
+  .guide { display: flex; gap: 6px 14px; flex-wrap: wrap; margin: 12px 0 0; padding: 0; list-style: none; font-size: 13px; color: var(--muted); counter-reset: g; }
+  .guide li { counter-increment: g; display: flex; align-items: center; gap: 6px; }
+  .guide li::before { content: counter(g); width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; background: var(--accent-soft); color: var(--accent-strong); }
+  .send-main { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 14px; }
+  .speed { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  @media (max-width: 620px) { .speed { grid-template-columns: 1fr 1fr; } }
+  .speed label { margin-top: 0; }
+
+  /* Progress + table */
+  .progress { height: 8px; background: var(--line); border-radius: 99px; overflow: hidden; margin: 16px 0 6px; }
+  .progress > div { height: 100%; width: 0; background: var(--accent); transition: width .25s; }
+  .stats { font-size: 13px; color: var(--muted); }
+  .table-wrap { overflow: auto; max-height: 380px; border: 1px solid var(--line); border-radius: 10px; margin-top: 10px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { position: sticky; top: 0; background: var(--card); color: var(--muted); font-weight: 600; font-size: 12px; }
+  td.msg { white-space: normal; min-width: 200px; max-width: 340px; color: var(--muted); }
+  tr:last-child td { border-bottom: none; }
+  .st-pending { color: var(--muted); }
+  .st-sent { color: var(--accent-strong); font-weight: 600; }
+  .st-failed { color: var(--err); font-weight: 600; }
+  .st-sending { color: var(--warn); font-weight: 600; }
+  .st-skipped { color: var(--muted); text-decoration: line-through; }
+  .tools { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+
+  /* Save as campaign */
+  .save-box { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+  .save-box h3 { margin: 0 0 4px; font-size: 14px; }
+
+  /* Phone preview */
+  .phone { border-radius: 22px; overflow: hidden; border: 1px solid var(--line); box-shadow: var(--shadow); background: var(--chat-bg); }
+  .chat-head { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--chat-head); }
+  .avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; font-weight: 700; flex: none; }
+  .who { min-width: 0; flex: 1; }
+  .who b { display: block; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .who span { font-size: 12px; color: var(--muted); }
+  .chat-head button { padding: 4px 9px; border-radius: 8px; background: transparent; }
+  .chat-body { min-height: 280px; padding: 16px 12px; display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+    background-image: radial-gradient(rgba(0,0,0,.04) 1px, transparent 1px); background-size: 14px 14px; }
+  .bubble { max-width: 92%; background: var(--bubble); color: var(--bubble-text); border-radius: 10px 0 10px 10px; padding: 6px 8px 4px; box-shadow: 0 1px 1px rgba(0,0,0,.12); }
+  .bubble .att { margin: 2px 0 6px; padding: 6px; border-radius: 8px; background: rgba(0,0,0,.06); }
+  #preview { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; line-height: 1.4; }
+  .bubble .time { text-align: right; font-size: 11px; opacity: .6; margin-top: 2px; }
+  .empty-chat { align-self: center; margin: auto; text-align: center; color: var(--muted); font-size: 13px; background: var(--card); padding: 8px 12px; border-radius: 8px; }
+  .phone-note { font-size: 12px; color: var(--muted); text-align: center; margin-top: 8px; }
+
+  /* Campaigns view */
+  .page-head { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .page-head h2 { font-size: 20px; }
+  .page-head p { margin: 4px 0 0; color: var(--muted); }
+  .page-head .right { margin-left: auto; }
+  #campList { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 14px; }
+  @media (max-width: 420px) { #campList { grid-template-columns: 1fr; } }
+  .srv { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); min-width: 0; }
+  .srv .head { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+  .srv .head b { font-size: 15px; }
+  .srv .row { margin-top: 12px; }
+  .srv .row button { padding: 6px 11px; font-size: 13px; }
+  .srv .runs { font-size: 12px; color: var(--muted); margin-top: 6px; max-height: 140px; overflow-y: auto; }
+  .srv details summary { cursor: pointer; }
+  .empty { grid-column: 1 / -1; text-align: center; padding: 40px 16px; color: var(--muted); background: var(--card); border: 1px dashed var(--line); border-radius: var(--radius); }
+  .empty .title { display: block; color: var(--text); font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+  .drop.compact { flex-direction: row; padding: 12px 16px; gap: 10px; }
+  .drop.compact .big-icon { font-size: 20px; }
+  .drop.compact b { font-size: 14px; }
+  @media (max-width: 520px) { .drop.compact #dropSub { display: none; } }
+
+  /* Login + toast */
+  .login { position: fixed; inset: 0; z-index: 20; background: var(--bg); display: grid; place-items: center; padding: 16px; }
+  .login form { width: 100%; max-width: 360px; }
+  .login .brand { justify-content: center; margin-bottom: 8px; }
+  .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 30; background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-size: 14px; box-shadow: var(--shadow); max-width: calc(100% - 32px); }
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="logo" viewBox="0 0 32 32"><circle cx="16" cy="16" r="16" fill="#0f9d58"/><path fill="#fff" d="M16 7a9 9 0 0 0-7.8 13.5L7 25l4.6-1.2A9 9 0 1 0 16 7Zm0 16.3a7.3 7.3 0 0 1-3.7-1l-.3-.2-2.7.7.7-2.6-.2-.3A7.3 7.3 0 1 1 16 23.3Zm4-5.5c-.2-.1-1.3-.7-1.5-.7s-.4-.1-.5.1l-.7.9c-.1.2-.3.2-.5.1a6 6 0 0 1-3-2.6c-.2-.4.2-.4.6-1.2.1-.1 0-.3 0-.4l-.7-1.6c-.2-.4-.4-.4-.5-.4h-.4c-.2 0-.4.1-.6.3s-.8.8-.8 1.9.8 2.2.9 2.3c.1.2 1.6 2.4 3.8 3.4 1.4.6 2 .7 2.7.6.4-.1 1.3-.5 1.5-1.1.2-.5.2-1 .1-1.1l-.4-.2Z"/></symbol>
+</svg>
+
 <div id="login" class="login hidden">
   <form id="loginForm" class="card">
-    <h2>WhatsApp Bulk Sender</h2>
+    <div class="brand"><svg><use href="#logo"/></svg> Bulk Sender</div>
     <label for="loginPw">Password</label>
     <input id="loginPw" type="password" autocomplete="current-password" required />
     <div class="st-failed" id="loginErr" style="min-height:20px;margin-top:6px;font-size:13px"></div>
-    <button class="primary" type="submit" style="width:100%">Log in</button>
+    <button class="primary big" type="submit" style="width:100%">Log in</button>
   </form>
 </div>
+
 <header>
-  <h1>WhatsApp Bulk Sender</h1>
-  <span id="apiBadge" class="badge off">Checking API…</span>
-  <button id="logoutBtn" class="hidden" style="margin-left:auto">Log out</button>
+  <div class="bar">
+    <div class="brand"><svg><use href="#logo"/></svg> Bulk Sender</div>
+    <nav class="views" id="viewNav">
+      <button data-view="send" class="active">Send</button>
+      <button data-view="campaigns">Campaigns<span class="count hidden" id="campCount"></span></button>
+    </nav>
+    <div class="right">
+      <span id="apiBadge" class="badge off">Checking…</span>
+      <button id="logoutBtn" class="hidden">Log out</button>
+    </div>
+  </div>
 </header>
 
 <main>
-  <!-- 1. Contacts -->
-  <section class="card">
-    <h2>1. Contacts</h2>
-    <div class="row">
-      <input type="file" id="csvFile" accept=".csv,text/csv" class="grow" />
-      <button id="loadSample">Load sample</button>
-      <a class="btn" id="downloadSample" href="/contacts.sample.csv" download="contacts-sample.csv">Download sample CSV</a>
-    </div>
-    <label for="csvText">…or paste CSV (first row = headers, must include a <b>phone</b> column)</label>
-    <textarea id="csvText" rows="6" placeholder="phone,name,city&#10;919876543210,Ravi,Chennai&#10;919812345678,Priya,Madurai"></textarea>
-    <div class="row" style="margin-top:8px">
-      <div class="grow">
-        <label for="cc">Default country code (added to numbers without one)</label>
-        <input id="cc" value="91" inputmode="numeric" />
+  <!-- ================= SEND VIEW ================= -->
+  <div id="viewSend" class="layout">
+
+    <!-- Step 1: Contacts -->
+    <section class="card" id="step1">
+      <div class="step-head"><span class="step-num" id="num1">1</span><h2>Contacts</h2></div>
+      <label class="drop" id="dropZone">
+        <span class="big-icon">📄</span>
+        <b id="dropTitle">Drop your CSV file here</b>
+        <span class="hint" style="margin:0" id="dropSub">or click to choose a file · needs a <b>phone</b> column</span>
+        <input type="file" id="csvFile" accept=".csv,text/csv" />
+      </label>
+      <div class="links">
+        <a id="downloadSample" href="/contacts.sample.csv" download="contacts-sample.csv">⬇ Download sample CSV</a>
+        <span class="sep">|</span>
+        <button id="loadSample">Try with sample contacts</button>
       </div>
-      <button class="primary" id="parseBtn" style="align-self:flex-end">Load contacts</button>
-    </div>
-    <div class="hint" id="contactInfo">No contacts loaded.</div>
-  </section>
-
-  <!-- 2. Message -->
-  <section class="card">
-    <h2>2. Message</h2>
-    <div class="tabs" id="modeTabs">
-      <button data-mode="manual" class="active">Manual (wa.me links)</button>
-      <button data-mode="api">Cloud API (automatic)</button>
-    </div>
-
-    <div id="textBlock">
-      <label for="msg">Message — use {column} placeholders, e.g. {name}</label>
-      <textarea id="msg" rows="6">Hi {name}, 👋
-This is a quick update from our team. Reply STOP if you don't want these messages.</textarea>
-      <div class="chips" id="chips"></div>
-    </div>
-
-    <div id="apiOpts" class="hidden">
-      <label for="apiType">API message type</label>
-      <select id="apiType">
-        <option value="template">Template (required for first contact / after 24h)</option>
-        <option value="text">Free text (only within 24h of their last message)</option>
-      </select>
-      <div id="tplBlock">
-        <div class="row">
-          <div class="grow"><label for="tplName">Template name</label><input id="tplName" placeholder="hello_world" value="hello_world" /></div>
-          <div style="width:120px"><label for="tplLang">Language</label><input id="tplLang" value="en_US" /></div>
+      <div class="summary">
+        <span id="contactInfo">No contacts loaded.</span>
+        <span class="cc"><label for="cc" style="margin:0;font-weight:500">Country code +</label><input id="cc" value="91" inputmode="numeric" /></span>
+      </div>
+      <details class="fold" id="pasteFold">
+        <summary>✍️ Paste or edit contacts</summary>
+        <div class="fold-body">
+          <textarea id="csvText" rows="6" placeholder="phone,name,city&#10;+91 98765 43210,Ravi,Chennai&#10;+91 98123 45678,Priya,Madurai"></textarea>
+          <div class="row" style="margin-top:8px">
+            <span class="hint grow" style="margin:0">First row is the column names. Any extra column, like <b>services</b>, can be used in the message.</span>
+            <button class="primary" id="parseBtn">Use these contacts</button>
+          </div>
         </div>
-        <label for="tplParams">Body parameters, one per line ({{1}}, {{2}} …) — placeholders allowed</label>
-        <textarea id="tplParams" rows="3" placeholder="{name}&#10;{city}"></textarea>
-      </div>
-    </div>
+      </details>
+    </section>
 
-    <div id="attachBlock">
-      <label for="attFile">Attachment (optional): image (JPEG/PNG, up to 5 MB) or document (PDF, Word, Excel… up to 100 MB)</label>
-      <div class="row">
-        <input type="file" id="attFile" class="grow" accept="image/jpeg,image/png,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip" />
-        <button id="attClear">Remove</button>
-      </div>
-      <label for="attLink">…or a public https link to the file</label>
-      <div class="row">
-        <input id="attLink" class="grow" placeholder="https://example.com/brochure.pdf" />
-        <select id="attLinkKind" style="width:auto">
-          <option value="document">Document</option>
-          <option value="image">Image</option>
+    <!-- Step 2: Message -->
+    <section class="card" id="step2">
+      <div class="step-head"><span class="step-num" id="num2">2</span><h2>Message</h2></div>
+
+      <div id="apiOpts" class="hidden">
+        <label for="apiType">Message type (automatic sending)</label>
+        <select id="apiType">
+          <option value="template">Approved template (needed for first messages)</option>
+          <option value="text">Free text (only within 24 h of their last message)</option>
         </select>
+        <div id="tplBlock">
+          <div class="row">
+            <div class="grow"><label for="tplName">Template name</label><input id="tplName" placeholder="hello_world" value="hello_world" /></div>
+            <div style="width:120px"><label for="tplLang">Language</label><input id="tplLang" value="en_US" /></div>
+          </div>
+          <label for="tplParams">Template values, one per line ({{1}}, {{2}} …) — {name} etc. allowed</label>
+          <textarea id="tplParams" rows="3" placeholder="{name}&#10;{services}"></textarea>
+        </div>
       </div>
-      <div class="hint" id="attHint"></div>
-    </div>
 
-    <label>Preview (first contact)</label>
-    <div class="preview" id="preview">—</div>
-    <div id="attPreview" class="att hidden"></div>
-  </section>
+      <div id="textBlock">
+        <label for="msg">Your message</label>
+        <textarea id="msg" rows="6">Hi {name}, 👋
+This is a quick update from our team. Reply STOP if you don't want these messages.</textarea>
+        <div class="chips" id="chips"></div>
+      </div>
 
-  <!-- 3. Send -->
-  <section class="card wide">
-    <h2>3. Send</h2>
+      <details class="fold" id="attachBlock">
+        <summary>📎 Attach an image or document <span class="hint" style="margin:0;font-weight:400">(optional)</span></summary>
+        <div class="fold-body">
+          <label for="attFile" style="margin-top:0">Image (JPEG/PNG, up to 5 MB) or document (PDF, Word, Excel…)</label>
+          <div class="row">
+            <input type="file" id="attFile" class="grow" accept="image/jpeg,image/png,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip" />
+            <button id="attClear">Remove</button>
+          </div>
+          <label for="attLink">…or a public link to the file</label>
+          <div class="row">
+            <input id="attLink" class="grow" placeholder="https://example.com/brochure.pdf" />
+            <select id="attLinkKind" style="width:auto">
+              <option value="document">Document</option>
+              <option value="image">Image</option>
+            </select>
+          </div>
+          <div class="hint" id="attHint"></div>
+        </div>
+      </details>
+    </section>
 
-    <div id="manualControls">
+    <!-- Phone preview -->
+    <aside class="phone-col">
+      <div class="phone">
+        <div class="chat-head">
+          <div class="avatar" id="pvAvatar">?</div>
+          <div class="who"><b id="pvName">Preview</b><span id="pvPhone">Load contacts to see each message</span></div>
+          <button id="pvPrev" title="Previous contact" aria-label="Previous contact">‹</button>
+          <button id="pvNext" title="Next contact" aria-label="Next contact">›</button>
+        </div>
+        <div class="chat-body">
+          <div class="bubble" id="pvBubble">
+            <div id="attPreview" class="att hidden"></div>
+            <div id="preview">—</div>
+            <div class="time">now ✓✓</div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-note" id="pvNote">This is how the message will look.</div>
+    </aside>
+
+    <!-- Step 3: Send -->
+    <section class="card" id="step3">
+      <div class="step-head"><span class="step-num" id="num3">3</span><h2>Send</h2><span class="sub" id="sendSub"></span></div>
+
+      <div class="modes" id="modeTabs">
+        <button data-mode="manual" class="active"><b data-mode="manual">✋ Manual</b><span data-mode="manual">Opens each chat; you press Send. Free, no setup.</span></button>
+        <button data-mode="api"><b data-mode="api">⚡ Automatic</b><span data-mode="api">Sends by itself through the WhatsApp Cloud API.</span></button>
+      </div>
+
+      <!-- Manual -->
+      <div id="manualControls">
+        <ol class="guide">
+          <li>Click <b>&nbsp;Open next chat</b></li>
+          <li>Press <b>&nbsp;Send</b> in WhatsApp</li>
+          <li>Close that tab (Ctrl+W) and repeat</li>
+        </ol>
+        <div class="send-main">
+          <a class="btn primary big disabled" id="openNext" target="_blank" rel="noopener">Open next chat ▶</a>
+          <button id="copyImg" class="hidden">📋 Copy image</button>
+          <select id="linkType" style="width:auto">
+            <option value="web" selected>Open in WhatsApp Web</option>
+            <option value="wa">Open in WhatsApp app</option>
+          </select>
+        </div>
+        <div class="hint" id="webHint">Each chat opens in a new tab and takes a few seconds to load. Other WhatsApp Web tabs will say it's open in another window; that's fine.</div>
+        <div class="hint" id="manualAttHint"></div>
+      </div>
+
+      <!-- Automatic -->
+      <div id="apiControls" class="hidden">
+        <div class="notice hidden" id="apiSetupNote">Automatic sending needs the WhatsApp Cloud API settings (<code>WHATSAPP_TOKEN</code> and <code>WHATSAPP_PHONE_NUMBER_ID</code>). Until then, use Manual.</div>
+        <div class="send-main">
+          <button class="primary big" id="startBtn">▶ Start sending</button>
+          <button class="danger" id="stopBtn" disabled>■ Stop</button>
+        </div>
+        <details class="fold">
+          <summary>⏱ Sending speed</summary>
+          <div class="fold-body">
+            <div class="speed">
+              <div><label for="delayMin">Wait at least (sec)</label><input id="delayMin" type="number" min="1" value="5" /></div>
+              <div><label for="delayMax">Wait at most (sec)</label><input id="delayMax" type="number" min="1" value="15" /></div>
+              <div><label for="batchSize">Take a break every</label><input id="batchSize" type="number" min="0" value="20" /></div>
+              <div><label for="batchPause">Break length (sec)</label><input id="batchPause" type="number" min="0" value="60" /></div>
+            </div>
+            <div class="hint">Each wait is random between the two values, so sending looks natural. Set "break every" to 0 for no breaks.</div>
+          </div>
+        </details>
+      </div>
+
+      <div class="progress"><div id="bar"></div></div>
       <div class="row">
-        <select id="linkType" style="width:auto">
-          <option value="web" selected>WhatsApp Web (browser tab)</option>
-          <option value="wa">wa.me (WhatsApp Desktop app / phone)</option>
-        </select>
-        <a class="btn primary disabled" id="openNext" target="_blank" rel="noopener">Open next chat ▶</a>
-        <button id="copyImg" class="hidden">Copy image</button>
-        <button id="resetStatus">Reset status</button>
-        <button id="exportCsv">Export results</button>
+        <div class="stats grow" id="stats"></div>
+        <div class="stats" id="waitInfo"></div>
       </div>
-      <div class="hint">Each click opens one chat with the message filled in. Press Send in WhatsApp, then come back and click again.</div>
-      <div class="hint" id="webHint">WhatsApp Web: each chat opens in a new tab and takes a few seconds to load before the message appears.
-        After pressing Send, close that tab (Ctrl+W) to come back here. WhatsApp Web allows only one active tab,
-        so other WhatsApp tabs will say it's open in another window; that's fine.</div>
-      <div class="hint" id="manualAttHint"></div>
-    </div>
 
-    <div id="apiControls" class="hidden">
-      <div class="row">
-        <div class="num"><label for="delayMin">Min gap (sec)</label><input id="delayMin" type="number" min="1" value="5" /></div>
-        <div class="num"><label for="delayMax">Max gap (sec)</label><input id="delayMax" type="number" min="1" value="15" /></div>
-        <div class="num"><label for="batchSize">Pause after every</label><input id="batchSize" type="number" min="0" value="20" /></div>
-        <div class="num"><label for="batchPause">messages, for (sec)</label><input id="batchPause" type="number" min="0" value="60" /></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>#</th><th>Phone</th><th>Name</th><th>Message</th><th>Status</th><th></th></tr></thead>
+          <tbody id="tbody"><tr><td colspan="6" class="hint">Your contacts will appear here.</td></tr></tbody>
+        </table>
       </div>
-      <div class="hint">Each gap is a random time between min and max. Set “pause after every” to 0 to turn off the longer pause.</div>
-      <div class="row" style="margin-top:10px">
-        <button class="primary" id="startBtn">Start sending</button>
-        <button class="danger" id="stopBtn" disabled>Stop</button>
-        <button id="resetStatus2">Reset status</button>
-        <button id="exportCsv2">Export results</button>
+      <div class="tools">
+        <button id="resetStatus">↺ Start over</button>
+        <button id="exportCsv">⬇ Export results</button>
+        <button id="resetStatus2" class="hidden"></button>
+        <button id="exportCsv2" class="hidden"></button>
       </div>
-      <div class="hint">Only contacts whose status is not “sent” are sent. Only message people who agreed to hear from you.</div>
-    </div>
 
-    <div class="progress"><div id="bar"></div></div>
-    <div class="stats" id="stats"></div>
-    <div class="stats" id="waitInfo"></div>
-
-    <div class="table-wrap" style="margin-top:10px">
-      <table>
-        <thead><tr><th>#</th><th>Phone</th><th>Name</th><th>Message</th><th>Status</th><th></th></tr></thead>
-        <tbody id="tbody"><tr><td colspan="6" class="hint">Load contacts to begin.</td></tr></tbody>
-      </table>
-    </div>
-  </section>
-
-  <section class="card wide">
-    <div class="sched-card">
-        <h2>4. Campaigns</h2>
-        <div class="hint">Saves the contacts (except skipped ones), message and attachment above as a named campaign, kept on the server.
-          Save as many as you like. With the Cloud API set up, the server sends each one automatically at its time (one campaign at a time),
-          so you can close this page. Without it, use <b>Load into page</b> on a campaign and send it with Manual mode.</div>
-        <div class="hint" id="platformHint"></div>
-        <div class="row" style="margin-top:8px">
-          <input id="campName" class="grow" placeholder="Campaign name, e.g. Diwali offer" maxlength="80" />
+      <!-- Save as campaign -->
+      <div class="save-box">
+        <h3>💾 Save as a campaign</h3>
+        <div class="hint" style="margin-top:0">Keep these contacts and this message to send later or on a schedule. Find it under <b>Campaigns</b>.</div>
+        <div class="row" style="margin-top:10px">
+          <input id="campName" class="grow" placeholder="Name, e.g. Diwali offer" maxlength="80" />
           <select id="schedType" style="width:auto">
             <option value="once">Once at</option>
             <option value="daily">Every day at</option>
@@ -234,10 +401,25 @@ This is a quick update from our team. Reply STOP if you don't want these message
           <input id="schedEvery" type="number" min="1" value="6" class="hidden" style="width:90px" />
           <button class="primary" id="campSave">Save campaign</button>
         </div>
-        <div id="campList"></div>
       </div>
-  </section>
+    </section>
+  </div>
+
+  <!-- ================= CAMPAIGNS VIEW ================= -->
+  <div id="viewCampaigns" class="hidden">
+    <div class="page-head">
+      <div>
+        <h2>Campaigns</h2>
+        <p>Saved broadcasts. With the Cloud API set up, each one sends by itself at its time.</p>
+      </div>
+      <div class="right"><button class="primary" id="newCampaign">＋ New campaign</button></div>
+    </div>
+    <div class="hint" id="platformHint" style="margin-bottom:12px"></div>
+    <div id="campList"></div>
+  </div>
 </main>
+
+<div class="toast hidden" id="toast"></div>
 
 <script>
 const $ = (id) => document.getElementById(id);
@@ -280,12 +462,14 @@ async function loadConfig() {
     cfg = await (await rawFetch("/api/config")).json();
   } catch { $("apiBadge").textContent = "Server not reachable"; return; }
   const b = $("apiBadge");
-  b.textContent = cfg.apiConfigured ? `Cloud API ready (${cfg.phoneNumberId})` : "Cloud API not configured — manual mode only";
+  b.textContent = cfg.apiConfigured ? `⚡ Automatic ready (${cfg.phoneNumberId})` : "✋ Manual mode";
+  b.title = cfg.apiConfigured ? "WhatsApp Cloud API is set up" : "WhatsApp Cloud API not set up: automatic sending is off";
   b.classList.toggle("off", !cfg.apiConfigured);
   $("logoutBtn").classList.toggle("hidden", !(cfg.authRequired && cfg.loggedIn));
   if (cfg.authMisconfigured) showLogin("This deployment has no APP_PASSWORD yet. Set it in Vercel → Settings → Environment Variables, then redeploy.");
   else if (cfg.authRequired && !cfg.loggedIn) showLogin();
   renderPlatformHints();
+  updateModeUi();
 }
 
 function renderPlatformHints() {
@@ -399,9 +583,9 @@ function esc(s) { return String(s).replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<"
 function render() {
   renderAttachment();
   updateOpenNext();
-  $("preview").textContent = contacts[0] ? messageFor(contacts[0]) : "—";
+  renderPreview();
   const tb = $("tbody");
-  if (!contacts.length) { tb.innerHTML = '<tr><td colspan="6" class="hint">Load contacts to begin.</td></tr>'; updateStats(); return; }
+  if (!contacts.length) { tb.innerHTML = '<tr><td colspan="6" class="hint">Your contacts will appear here.</td></tr>'; updateStats(); return; }
   tb.innerHTML = contacts.map((c, i) => `
     <tr>
       <td>${i + 1}</td>
@@ -624,6 +808,7 @@ async function runBroadcast() {
   if (running) return;
   const problem = messageProblem();
   if (problem) return fail(problem);
+  const isTpl = $("apiType").value === "template";
   const todo = contacts.filter(c => c.status === "pending" || c.status === "failed");
   if (!todo.length) return fail("Nothing to send.");
   if (!confirm(`Send to ${todo.length} contact(s) via Cloud API?`)) return;
@@ -733,6 +918,7 @@ $("campSave").onclick = async () => {
     if (!r.ok) throw new Error(r.error);
     $("campName").value = "";
     renderCampaigns(r.status);
+    toast(`Saved “${name}”. Find it under Campaigns.`);
   } catch (e) {
     alert("Could not save the campaign: " + e.message);
   } finally {
@@ -768,11 +954,13 @@ function campaignState(c) {
 function renderCampaigns(st) {
   const box = $("campList");
   campaignsById = Object.fromEntries((st.campaigns || []).map(c => [c.id, c]));
+  const n = (st.campaigns || []).length;
+  $("campCount").textContent = n; $("campCount").classList.toggle("hidden", !n);
   if (!st.campaigns || !st.campaigns.length) {
-    box.innerHTML = `<div class="hint" style="margin-top:10px">No campaigns yet.</div>`;
+    box.innerHTML = `<div class="empty"><span class="title">No campaigns yet</span>Set up contacts and a message on the Send tab, then use <b>Save as a campaign</b>.</div>`;
     return;
   }
-  const warn = st.apiConfigured ? "" : `<div class="st-failed" style="margin-top:10px">The WhatsApp Cloud API isn't set up yet, so campaigns are saved but not sent automatically (scheduled runs are skipped). Use <b>Load into page</b> to send one with Manual mode.</div>`;
+  const warn = st.apiConfigured ? "" : `<div class="notice" style="grid-column:1/-1;margin:0">The WhatsApp Cloud API isn't set up yet, so campaigns are saved but not sent automatically (scheduled runs are skipped). Use <b>Load into page</b> to send one with Manual mode.</div>`;
   box.innerHTML = warn + st.campaigns.map(c => {
     const what = c.message.type === "template" ? `template “${esc(c.message.template.name)}”` : "free text";
     const att = c.media ? ` · ${c.media.kind === "image" ? "🖼" : "📄"} ${esc(c.media.filename)}` : "";
@@ -793,13 +981,13 @@ function renderCampaigns(st) {
       : `<button data-act="resume" data-id="${id}" ${c.finished && c.schedule.type === "once" ? "disabled title=\"One-time campaign already sent\"" : ""}>Resume schedule</button>`;
     return `
     <div class="srv">
-      <div class="head"><b>${esc(c.name)}</b> ${campaignState(c)}</div>
+      <div class="head"><b>${esc(c.name)}</b><div class="stats">${campaignState(c)}</div></div>
       <div class="stats">${c.contactsCount} contacts · ${what}${att} · ${schedText(c.schedule)} · gap ${c.interval.min}–${c.interval.max}s${c.interval.batchSize ? `, pause ${c.interval.batchPause}s every ${c.interval.batchSize}` : ""}</div>
       ${c.sampleText ? `<div class="stats" style="margin-top:2px">“${esc(c.sampleText.slice(0, 90))}${c.sampleText.length > 90 ? "…" : ""}”</div>` : ""}
       <div class="row" style="margin-top:8px">
         ${runButtons}
         ${scheduleButton}
-        <button data-act="load" data-id="${id}">Load into page</button>
+        <button data-act="load" data-id="${id}" ${st.apiConfigured ? "" : `class="primary"`}>Load into page</button>
         <button data-act="export" data-id="${id}" ${c.lastResultsCount ? "" : "disabled"}>Export last run</button>
         <button data-act="delete" data-id="${id}" class="danger" ${c.running ? "disabled title=\"Stop or cancel the run first\"" : ""}>Delete</button>
       </div>
@@ -852,7 +1040,9 @@ async function loadCampaignIntoPage(id) {
     $("attLink").dispatchEvent(new Event("input"));
   }
   loadContacts();
+  showView("send");
   window.scrollTo({ top: 0, behavior: "smooth" });
+  toast(`Loaded “${r.name}”`);
   const note = r.media?.source === "file" ? ` Its attachment (${r.media.filename}) isn't loaded; choose the file again if you need it.` : "";
   $("contactInfo").textContent += ` Loaded from campaign “${r.name}”.${note}`;
 }
@@ -883,6 +1073,79 @@ setInterval(() => {
   pollTick++;
   if (!document.hidden && pollTick % (cfg.platform === "vercel" ? 5 : 2) === 0) pollServer();
 }, 1000);
+
+// ---------- New UI: views, drop zone, preview, steps ----------
+function toast(text) {
+  const t = $("toast");
+  t.textContent = text; t.classList.remove("hidden");
+  clearTimeout(toast.timer); toast.timer = setTimeout(() => t.classList.add("hidden"), 3200);
+}
+
+function showView(v) {
+  $("viewSend").classList.toggle("hidden", v !== "send");
+  $("viewCampaigns").classList.toggle("hidden", v !== "campaigns");
+  [...$("viewNav").children].forEach(b => b.classList.toggle("active", b.dataset.view === v));
+  try { localStorage.setItem("wa_view", v); } catch {}
+  if (v === "campaigns") pollServer();
+}
+$("viewNav").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) showView(b.dataset.view); });
+$("newCampaign").onclick = () => { showView("send"); $("campName").scrollIntoView({ behavior: "smooth", block: "center" }); setTimeout(() => $("campName").focus(), 400); };
+try { if (localStorage.getItem("wa_view") === "campaigns") showView("campaigns"); } catch {}
+
+// Drag and drop a CSV onto step 1
+const drop = $("dropZone");
+["dragenter", "dragover"].forEach(ev => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, () => drop.classList.remove("over")));
+drop.addEventListener("drop", async (e) => {
+  e.preventDefault();
+  const f = e.dataTransfer.files[0];
+  if (!f) return;
+  if (!/\.csv$|text\/csv|excel/i.test(f.name + " " + f.type)) return alert("Please drop a .csv file. In Excel use File → Save As → CSV UTF-8.");
+  $("csvText").value = await f.text(); loadContacts();
+});
+
+// Phone preview: one contact at a time
+let previewIdx = 0;
+function previewText(c) {
+  if (mode === "api" && $("apiType").value === "template") {
+    const params = tplParams(c);
+    return `Template “${$("tplName").value}”` + (params.length ? "\n" + params.map((p, i) => `{{${i + 1}}} = ${p}`).join("\n") : "");
+  }
+  return manualText(c);
+}
+function renderPreview() {
+  if (previewIdx >= contacts.length) previewIdx = 0;
+  const c = contacts[previewIdx];
+  const name = c ? (c.data.name || "Contact " + (previewIdx + 1)) : "Preview";
+  $("pvName").textContent = name;
+  $("pvPhone").textContent = c ? `+${c.phone} · ${previewIdx + 1} of ${contacts.length}` : "Load contacts to see each message";
+  $("pvAvatar").textContent = c ? name.trim().charAt(0).toUpperCase() : "?";
+  $("pvPrev").disabled = !c || previewIdx === 0;
+  $("pvNext").disabled = !c || previewIdx >= contacts.length - 1;
+  const sample = { phone: "919876543210", data: { name: "Ravi" } };
+  $("preview").textContent = previewText(c || sample) || "—";
+  $("pvNote").textContent = c ? "This is how the message will look for this contact." : "Example with a sample contact. Load your contacts to see theirs.";
+  // step markers: ✓ when a step is done
+  const msgOk = !messageProblem() || (contacts.length === 0 && ($("msg").value.trim() || currentAttachment()));
+  $("num1").textContent = contacts.length ? "✓" : "1"; $("num1").classList.toggle("done", contacts.length > 0);
+  // Once contacts are loaded, the drop zone shrinks to a "replace" strip
+  $("dropZone").classList.toggle("compact", contacts.length > 0);
+  $("dropTitle").textContent = contacts.length ? "Drop another CSV to replace" : "Drop your CSV file here";
+  $("dropSub").innerHTML = contacts.length ? "or click to choose a file" : "or click to choose a file · needs a <b>phone</b> column";
+  $("num2").textContent = msgOk ? "✓" : "2"; $("num2").classList.toggle("done", Boolean(msgOk));
+  const n = contacts.length, done = contacts.filter(x => x.status === "sent").length;
+  $("sendSub").textContent = n ? `${done} of ${n} done` : "";
+}
+$("pvPrev").onclick = () => { previewIdx = Math.max(0, previewIdx - 1); renderPreview(); };
+$("pvNext").onclick = () => { previewIdx = Math.min(contacts.length - 1, previewIdx + 1); renderPreview(); };
+
+// Automatic mode needs the Cloud API: show a note and keep Start off until it's set up
+function updateModeUi() {
+  const noApi = !cfg.apiConfigured;
+  $("apiSetupNote").classList.toggle("hidden", !noApi);
+  $("startBtn").disabled = noApi || running;
+}
+$("modeTabs").addEventListener("click", () => setTimeout(updateModeUi, 0));
 
 // ---------- Shared ----------
 function resetStatus() { if (confirm("Reset every contact to pending?")) { contacts.forEach(c => { c.status = "pending"; c.note = ""; }); render(); } }
