@@ -31,6 +31,10 @@
   textarea { resize: vertical; }
   button { font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--text); cursor: pointer; }
   button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  a.btn { display: inline-block; font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--text); text-decoration: none; cursor: pointer; }
+  td a.btn { padding: 4px 12px; }
+  a.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  a.btn.disabled { opacity: .5; cursor: not-allowed; }
   button.danger { color: var(--err); }
   button:disabled { opacity: .5; cursor: not-allowed; }
   .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
@@ -168,15 +172,15 @@ This is a quick update from our team. Reply STOP if you don't want these message
           <option value="web" selected>WhatsApp Web (browser tab)</option>
           <option value="wa">wa.me (WhatsApp Desktop app / phone)</option>
         </select>
-        <button class="primary" id="openNext">Open next chat ▶</button>
+        <a class="btn primary disabled" id="openNext" target="_blank" rel="noopener">Open next chat ▶</a>
         <button id="copyImg" class="hidden">Copy image</button>
         <button id="resetStatus">Reset status</button>
         <button id="exportCsv">Export results</button>
       </div>
       <div class="hint">Each click opens one chat with the message filled in. Press Send in WhatsApp, then come back and click again.</div>
-      <div class="hint" id="webHint">WhatsApp Web: the first click opens WhatsApp in its own tab, and every later click reuses that same tab.
-        WhatsApp Web allows only one active tab, so any other WhatsApp tab you had open will say it's open in another window; you can close that one.
-        Each chat takes a few seconds to load before the message appears.</div>
+      <div class="hint" id="webHint">WhatsApp Web: each chat opens in a new tab and takes a few seconds to load before the message appears.
+        After pressing Send, close that tab (Ctrl+W) to come back here. WhatsApp Web allows only one active tab,
+        so other WhatsApp tabs will say it's open in another window; that's fine.</div>
       <div class="hint" id="manualAttHint"></div>
     </div>
 
@@ -386,6 +390,7 @@ function esc(s) { return String(s).replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<"
 
 function render() {
   renderAttachment();
+  updateOpenNext();
   $("preview").textContent = contacts[0] ? messageFor(contacts[0]) : "—";
   const tb = $("tbody");
   if (!contacts.length) { tb.innerHTML = '<tr><td colspan="6" class="hint">Load contacts to begin.</td></tr>'; updateStats(); return; }
@@ -396,14 +401,14 @@ function render() {
       <td>${esc(c.data.name || "")}</td>
       <td class="msg">${esc(messageFor(c)).slice(0, 200)}</td>
       <td class="st-${c.status}" title="${esc(c.note)}">${c.status}${c.note && c.status === "failed" ? " ⓘ" : ""}</td>
-      <td>${mode === "manual" ? `<button data-open="${i}">Open</button>` : `<button data-skip="${i}">${c.status === "skipped" ? "Unskip" : "Skip"}</button>`}</td>
+      <td>${mode === "manual" ? `<a class="btn" data-open="${i}" href="${esc(chatUrl(c))}" target="_blank" rel="noopener">Open</a>` : `<button data-skip="${i}">${c.status === "skipped" ? "Unskip" : "Skip"}</button>`}</td>
     </tr>`).join("");
   updateStats();
 }
 
 $("tbody").addEventListener("click", (e) => {
   const o = e.target.dataset.open, s = e.target.dataset.skip;
-  if (o !== undefined) openChat(Number(o));
+  if (o !== undefined) markOpened(Number(o));
   if (s !== undefined) { const c = contacts[s]; c.status = c.status === "skipped" ? "pending" : "skipped"; render(); }
 });
 
@@ -531,17 +536,33 @@ $("modeTabs").addEventListener("click", (e) => {
 });
 
 // ---------- Manual mode ----------
-function openChat(i) {
-  const c = contacts[i]; if (!c) return;
+// Chats open through real links (target=_blank), which pop-up blockers allow.
+function chatUrl(c) {
   const text = encodeURIComponent(manualText(c));
-  const url = $("linkType").value === "web"
+  return $("linkType").value === "web"
     ? `https://web.whatsapp.com/send?phone=${c.phone}&text=${text}`
     : `https://wa.me/${c.phone}?text=${text}`;
-  // A fixed window name makes every click reuse the same WhatsApp tab
-  const w = window.open(url, "whatsapp_chat");
-  if (!w) { alert("The browser blocked the WhatsApp tab. Allow pop-ups for this site, then click again."); return; }
-  c.status = "sent"; c.note = "opened manually";
-  render();
+}
+const nextPending = () => contacts.findIndex(c => c.status === "pending");
+
+// Point "Open next chat" at the next pending contact
+function updateOpenNext() {
+  const a = $("openNext");
+  const i = nextPending();
+  if (i < 0) { a.removeAttribute("href"); a.classList.add("disabled"); a.textContent = contacts.length ? "All chats opened ✓" : "Open next chat ▶"; return; }
+  a.href = chatUrl(contacts[i]);
+  a.dataset.index = i;
+  a.classList.remove("disabled");
+  a.textContent = `Open next chat ▶ (${i + 1} of ${contacts.length})`;
+}
+
+// Mark a contact as opened, after the browser has followed the link
+function markOpened(i) {
+  setTimeout(() => {
+    const c = contacts[i]; if (!c) return;
+    c.status = "sent"; c.note = "opened manually";
+    render();
+  }, 0);
 }
 
 // Remember the chosen link type in this browser
@@ -550,13 +571,14 @@ function updateLinkHint() { $("webHint").classList.toggle("hidden", $("linkType"
 $("linkType").addEventListener("change", () => {
   try { localStorage.setItem("wa_linkType", $("linkType").value); } catch {}
   updateLinkHint();
+  render();
 });
 updateLinkHint();
-$("openNext").onclick = () => {
-  const i = contacts.findIndex(c => c.status === "pending");
-  if (i < 0) { alert(contacts.length ? "All contacts done." : "Load contacts first."); return; }
-  openChat(i);
-};
+$("openNext").addEventListener("click", (e) => {
+  const i = nextPending();
+  if (i < 0) { e.preventDefault(); if (!contacts.length) alert("Load contacts first."); return; }
+  markOpened(i);
+});
 
 // ---------- API mode ----------
 let running = false;
