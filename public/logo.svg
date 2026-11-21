@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1fc06e"/>
+      <stop offset="1" stop-color="#0a7a43"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="url(#g)"/>
+  <!-- second bubble behind: many messages -->
+  <path d="M24 14h22a8 8 0 0 1 8 8v12a8 8 0 0 1-8 8h-1" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="3.5" stroke-linecap="round"/>
+  <!-- front chat bubble -->
+  <path d="M18 21h22a7 7 0 0 1 7 7v11a7 7 0 0 1-7 7H27l-8 6v-6.3A7 7 0 0 1 11 39V28a7 7 0 0 1 7-7z" fill="#fff"/>
+  <!-- paper plane: send -->
+  <path d="M19.5 33.6 37.5 26.5 31.8 41.6 28.4 35.8z" fill="#0f9d58"/>
+  <path d="M28.4 35.8 37.5 26.5" stroke="#0a7a43" stroke-width="1.2" stroke-linecap="round"/>
+</svg>
