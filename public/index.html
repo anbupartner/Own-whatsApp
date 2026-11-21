@@ -57,6 +57,8 @@
   .stats { font-size: 13px; color: var(--muted); }
   .num { width: 140px; }
   .sched { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .login { position: fixed; inset: 0; z-index: 10; background: var(--bg); display: grid; place-items: center; padding: 16px; }
+  .login form { width: 100%; max-width: 340px; }
   .sched h3 { font-size: 14px; margin: 0 0 4px; }
   .srv { margin-top: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
   .srv .head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
@@ -68,9 +70,19 @@
 </style>
 </head>
 <body>
+<div id="login" class="login hidden">
+  <form id="loginForm" class="card">
+    <h2>WhatsApp Bulk Sender</h2>
+    <label for="loginPw">Password</label>
+    <input id="loginPw" type="password" autocomplete="current-password" required />
+    <div class="st-failed" id="loginErr" style="min-height:20px;margin-top:6px;font-size:13px"></div>
+    <button class="primary" type="submit" style="width:100%">Log in</button>
+  </form>
+</div>
 <header>
   <h1>WhatsApp Bulk Sender</h1>
   <span id="apiBadge" class="badge off">Checking API…</span>
+  <button id="logoutBtn" class="hidden" style="margin-left:auto">Log out</button>
 </header>
 
 <main>
@@ -184,6 +196,7 @@ This is a quick update from our team. Reply STOP if you don't want these message
       <div class="sched">
         <h3>Repeat on a schedule (runs on the server)</h3>
         <div class="hint">Saves the contacts (except skipped ones), message, attachment and interval above to the server, which sends them again on each run. You can close this page; only the server has to keep running.</div>
+        <div class="hint" id="platformHint"></div>
         <div class="row" style="margin-top:8px">
           <select id="schedType" style="width:auto">
             <option value="daily">Every day at</option>
@@ -218,12 +231,56 @@ let headers = [];
 let mode = "manual";
 let stopFlag = false;
 
-// ---------- API status ----------
-fetch("/api/config").then(r => r.json()).then(c => {
+// ---------- Login and server config ----------
+let cfg = { platform: "local", maxUpload: { image: 5 * 1048576, document: 100 * 1048576 } };
+
+// Any API call answered with 401 shows the login screen
+const rawFetch = window.fetch.bind(window);
+window.fetch = async (...args) => {
+  const r = await rawFetch(...args);
+  if (r.status === 401 && String(args[0]).startsWith("/api/")) showLogin();
+  return r;
+};
+
+function showLogin(msg) {
+  $("login").classList.remove("hidden");
+  if (msg) $("loginErr").textContent = msg;
+  setTimeout(() => $("loginPw").focus(), 50);
+}
+
+$("loginForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  $("loginErr").textContent = "";
+  const r = await (await rawFetch("/api/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: $("loginPw").value }) })).json();
+  if (!r.ok) { $("loginErr").textContent = r.error; return; }
+  $("loginPw").value = "";
+  $("login").classList.add("hidden");
+  loadConfig();
+  pollServer();
+});
+$("logoutBtn").onclick = async () => { await rawFetch("/api/logout", { method: "POST" }); showLogin(); };
+
+async function loadConfig() {
+  try {
+    cfg = await (await rawFetch("/api/config")).json();
+  } catch { $("apiBadge").textContent = "Server not reachable"; return; }
   const b = $("apiBadge");
-  b.textContent = c.apiConfigured ? `Cloud API ready (${c.phoneNumberId})` : "Cloud API not configured — manual mode only";
-  b.classList.toggle("off", !c.apiConfigured);
-}).catch(() => { $("apiBadge").textContent = "Server not reachable"; });
+  b.textContent = cfg.apiConfigured ? `Cloud API ready (${cfg.phoneNumberId})` : "Cloud API not configured — manual mode only";
+  b.classList.toggle("off", !cfg.apiConfigured);
+  $("logoutBtn").classList.toggle("hidden", !(cfg.authRequired && cfg.loggedIn));
+  if (cfg.authMisconfigured) showLogin("This deployment has no APP_PASSWORD yet. Set it in Vercel → Settings → Environment Variables, then redeploy.");
+  else if (cfg.authRequired && !cfg.loggedIn) showLogin();
+  renderPlatformHints();
+}
+
+function renderPlatformHints() {
+  const h = $("platformHint");
+  if (cfg.platform !== "vercel") { h.textContent = ""; return; }
+  h.innerHTML = !cfg.storage
+    ? `<span class="st-failed">No database connected: add Upstash Redis in the Vercel project's Storage tab and redeploy to use the schedule.</span>`
+    : `On Vercel, runs are started by a cron call to /api/cron${cfg.cronConfigured ? "" : ` <span class="st-failed">(set CRON_SECRET first)</span>`}. The free plan allows one call a day, so pick a daily time that matches it, or call /api/cron every few minutes from an external cron service. One call sends for up to about 4½ minutes; the rest continues on the next call.`;
+}
+loadConfig();
 
 // ---------- CSV parsing (handles quotes) ----------
 function parseCSV(text) {
@@ -369,7 +426,7 @@ $("attFile").addEventListener("change", (e) => {
   const isImg = f.type.startsWith("image/");
   if (isImg && !IMAGE_TYPES.includes(f.type)) { alert("WhatsApp images must be JPEG or PNG. Send other images as a document by zipping them, or convert them."); e.target.value = ""; return; }
   const kind = isImg ? "image" : "document";
-  const max = kind === "image" ? 5 * 1048576 : 100 * 1048576;
+  const max = cfg.maxUpload[kind];
   if (f.size > max) { alert(`File is ${fmtSize(f.size)}. The WhatsApp limit for ${kind}s is ${fmtSize(max)}.`); e.target.value = ""; return; }
   if (attachment?.url) URL.revokeObjectURL(attachment.url);
   attachment = { file: f, kind, mediaId: null, url: kind === "image" ? URL.createObjectURL(f) : null };
@@ -597,7 +654,7 @@ $("schedSave").onclick = async () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        schedule: { type: $("schedType").value, time: $("schedTime").value, every: Number($("schedEvery").value) },
+        schedule: { type: $("schedType").value, time: $("schedTime").value, every: Number($("schedEvery").value), tz: Intl.DateTimeFormat().resolvedOptions().timeZone },
         interval: { min: $("delayMin").value, max: $("delayMax").value, batchSize: $("batchSize").value, batchPause: $("batchPause").value },
         message: isTpl ? { type: "template", template: { name: $("tplName").value.trim(), language: $("tplLang").value.trim() } } : { type: "text" },
         media,
@@ -624,7 +681,7 @@ function renderServer(st) {
   let state;
   if (st.running && st.progress) {
     const p = st.progress;
-    state = `<span class="st-sending">Sending: ${p.done}/${p.total} (sent ${p.sent}, failed ${p.failed})${p.waitSeconds ? ` · ${esc(p.waitLabel || "")} ${p.waitSeconds}s` : ""}</span>`;
+    state = `<span class="st-sending">Sending: ${p.done}/${p.total} (sent ${p.sent}, failed ${p.failed})${p.waitingForCron ? " · paused at the time limit, continues on the next cron call" : p.waitSeconds ? ` · ${esc(p.waitLabel || "")} ${p.waitSeconds}s` : ""}</span>`;
   } else if (st.enabled) {
     state = `<span class="st-sent">Active</span> · next run ${new Date(st.nextRunAt).toLocaleString()}`;
   } else {
@@ -652,9 +709,9 @@ $("srvBox").addEventListener("click", async (e) => {
   if (act === "export") return exportServerResults();
   if (act === "delete" && !confirm("Delete the saved schedule from the server?")) return;
   if (act === "run-now" && !confirm(`Send to all ${lastServerStatus.contactsCount} saved contacts now?`)) return;
-  const r = await api(`/api/schedule/${act}`, { method: "POST" });
-  if (!r.ok) alert(r.error);
-  pollServer();
+  // On Vercel "Run now" keeps the request open while sending, so don't wait for it
+  const req = api(`/api/schedule/${act}`, { method: "POST" }).then(r => { if (!r.ok) alert(r.error); pollServer(); });
+  if (act === "run-now") setTimeout(pollServer, 1000); else await req;
 });
 
 function exportServerResults() {
@@ -668,10 +725,20 @@ function exportServerResults() {
 }
 
 async function pollServer() {
-  try { renderServer(await api("/api/schedule")); } catch { /* server not reachable */ }
+  if (!$("login").classList.contains("hidden")) return;
+  try {
+    const r = await fetch("/api/schedule");
+    if (r.ok) renderServer(await r.json());
+    else if (r.status === 503) $("srvBox").classList.add("hidden");
+  } catch { /* server not reachable */ }
 }
 pollServer();
-setInterval(pollServer, 2000);
+// Every 2 s locally, 5 s on Vercel (each poll is a function call); not while the tab is hidden
+let pollTick = 0;
+setInterval(() => {
+  pollTick++;
+  if (!document.hidden && pollTick % (cfg.platform === "vercel" ? 5 : 2) === 0) pollServer();
+}, 1000);
 
 // ---------- Shared ----------
 function resetStatus() { if (confirm("Reset every contact to pending?")) { contacts.forEach(c => { c.status = "pending"; c.note = ""; }); render(); } }
