@@ -45,7 +45,11 @@ This uses Meta's official WhatsApp Business Cloud API.
 - **Min / max gap:** after each message the app waits a random time between these values (default 5–15 seconds).
 - **Pause after every N messages:** a longer break after each batch (default 60 seconds after every 20). Set N to 0 to turn it off.
 
-### Campaigns (sent automatically by the server, Cloud API mode)
+### Campaigns
+
+Campaigns can be saved in either mode. They are sent automatically only when the WhatsApp Cloud API is set up;
+without it, scheduled runs are skipped, and **Load into page** puts a campaign's contacts and message back on the page
+so you can send it with Manual mode. (A file attachment has to be chosen again; a link attachment is restored.)
 
 A campaign is a saved broadcast: its own contacts, message (or template), attachment, gaps and schedule.
 You can save as many campaigns as you like.

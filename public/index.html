@@ -200,12 +200,26 @@ This is a quick update from our team. Reply STOP if you don't want these message
         <button id="exportCsv2">Export results</button>
       </div>
       <div class="hint">Only contacts whose status is not “sent” are sent. Only message people who agreed to hear from you.</div>
+    </div>
 
-      <div class="sched">
-        <h3>Campaigns (sent automatically by the server)</h3>
-        <div class="hint">Saves the contacts (except skipped ones), message, attachment and gaps above as a named campaign.
-          Save as many campaigns as you like, each with its own contacts, message and time. The server sends them on schedule,
-          one campaign at a time, so you can close this page.</div>
+    <div class="progress"><div id="bar"></div></div>
+    <div class="stats" id="stats"></div>
+    <div class="stats" id="waitInfo"></div>
+
+    <div class="table-wrap" style="margin-top:10px">
+      <table>
+        <thead><tr><th>#</th><th>Phone</th><th>Name</th><th>Message</th><th>Status</th><th></th></tr></thead>
+        <tbody id="tbody"><tr><td colspan="6" class="hint">Load contacts to begin.</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card wide">
+    <div class="sched-card">
+        <h2>4. Campaigns</h2>
+        <div class="hint">Saves the contacts (except skipped ones), message and attachment above as a named campaign, kept on the server.
+          Save as many as you like. With the Cloud API set up, the server sends each one automatically at its time (one campaign at a time),
+          so you can close this page. Without it, use <b>Load into page</b> on a campaign and send it with Manual mode.</div>
         <div class="hint" id="platformHint"></div>
         <div class="row" style="margin-top:8px">
           <input id="campName" class="grow" placeholder="Campaign name, e.g. Diwali offer" maxlength="80" />
@@ -222,18 +236,6 @@ This is a quick update from our team. Reply STOP if you don't want these message
         </div>
         <div id="campList"></div>
       </div>
-    </div>
-
-    <div class="progress"><div id="bar"></div></div>
-    <div class="stats" id="stats"></div>
-    <div class="stats" id="waitInfo"></div>
-
-    <div class="table-wrap" style="margin-top:10px">
-      <table>
-        <thead><tr><th>#</th><th>Phone</th><th>Name</th><th>Message</th><th>Status</th><th></th></tr></thead>
-        <tbody id="tbody"><tr><td colspan="6" class="hint">Load contacts to begin.</td></tr></tbody>
-      </table>
-    </div>
   </section>
 </main>
 
@@ -610,7 +612,7 @@ function gapMs() {
 // Problem with the current message setup, or null if it's ready to send
 function messageProblem() {
   if (!contacts.length) return "Load contacts first.";
-  const isTpl = $("apiType").value === "template";
+  const isTpl = mode === "api" && $("apiType").value === "template";
   if (isTpl && !$("tplName").value.trim()) return "Enter a template name.";
   if (!isTpl && !currentAttachment() && !$("msg").value.trim()) return "Write a message or add an attachment.";
   return null;
@@ -691,7 +693,7 @@ $("campSave").onclick = async () => {
     if (!(t.getTime() > Date.now())) return alert("Pick a send time in the future.");
     at = t.toISOString();
   }
-  const isTpl = $("apiType").value === "template";
+  const isTpl = mode === "api" && $("apiType").value === "template";
   const a = currentAttachment();
   const btn = $("campSave");
   btn.disabled = true;
@@ -720,6 +722,12 @@ $("campSave").onclick = async () => {
         message: isTpl ? { type: "template", template: { name: $("tplName").value.trim(), language: $("tplLang").value.trim() } } : { type: "text" },
         media,
         contacts: list.map(c => ({ phone: c.phone, name: c.data.name || "", text: fill($("msg").value, c), params: isTpl ? tplParams(c) : [] })),
+        // Kept so "Load into page" can put this campaign back on the page
+        page: {
+          headers, rows: list.map(c => headers.map(h => c.data[h] ?? "")),
+          msg: $("msg").value, tplParams: $("tplParams").value, tplName: $("tplName").value, tplLang: $("tplLang").value,
+          apiType: isTpl ? "template" : "text", cc: $("cc").value,
+        },
       }),
     });
     if (!r.ok) throw new Error(r.error);
@@ -764,21 +772,22 @@ function renderCampaigns(st) {
     box.innerHTML = `<div class="hint" style="margin-top:10px">No campaigns yet.</div>`;
     return;
   }
-  const warn = st.apiConfigured ? "" : `<div class="st-failed" style="margin-top:10px">Cloud API is not configured on the server, so campaigns are skipped instead of sent.</div>`;
+  const warn = st.apiConfigured ? "" : `<div class="st-failed" style="margin-top:10px">The WhatsApp Cloud API isn't set up yet, so campaigns are saved but not sent automatically (scheduled runs are skipped). Use <b>Load into page</b> to send one with Manual mode.</div>`;
   box.innerHTML = warn + st.campaigns.map(c => {
     const what = c.message.type === "template" ? `template “${esc(c.message.template.name)}”` : "free text";
     const att = c.media ? ` · ${c.media.kind === "image" ? "🖼" : "📄"} ${esc(c.media.filename)}` : "";
     // Sending controls depend on the run's state: idle, queued, sending, or stopped (held)
     const id = c.id;
+    const noApi = !st.apiConfigured ? `disabled title="Needs the WhatsApp Cloud API settings"` : "";
     const runButtons = c.held
-      ? `<button class="primary" data-act="resume-run" data-id="${id}">Resume sending</button>
+      ? `<button class="primary" data-act="resume-run" data-id="${id}" ${noApi}>Resume sending</button>
          <button class="danger" data-act="cancel" data-id="${id}">Cancel</button>`
       : c.running
         ? `<button data-act="stop" data-id="${id}" ${c.stopRequested ? "disabled" : ""}>Stop</button>
            <button class="danger" data-act="cancel" data-id="${id}" ${c.stopRequested ? "disabled" : ""}>Cancel</button>`
         : c.queued
           ? `<button class="danger" data-act="cancel" data-id="${id}">Cancel</button>`
-          : `<button class="primary" data-act="run-now" data-id="${id}">Start now</button>`;
+          : `<button class="primary" data-act="run-now" data-id="${id}" ${noApi}>Start now</button>`;
     const scheduleButton = c.enabled
       ? `<button data-act="pause" data-id="${id}">Pause schedule</button>`
       : `<button data-act="resume" data-id="${id}" ${c.finished && c.schedule.type === "once" ? "disabled title=\"One-time campaign already sent\"" : ""}>Resume schedule</button>`;
@@ -790,6 +799,7 @@ function renderCampaigns(st) {
       <div class="row" style="margin-top:8px">
         ${runButtons}
         ${scheduleButton}
+        <button data-act="load" data-id="${id}">Load into page</button>
         <button data-act="export" data-id="${id}" ${c.lastResultsCount ? "" : "disabled"}>Export last run</button>
         <button data-act="delete" data-id="${id}" class="danger" ${c.running ? "disabled title=\"Stop or cancel the run first\"" : ""}>Delete</button>
       </div>
@@ -810,6 +820,7 @@ $("campList").addEventListener("click", async (e) => {
   if (!act || !id) return;
   const c = campaignsById[id];
   if (act === "export") return exportCampaignResults(id);
+  if (act === "load") return loadCampaignIntoPage(id);
   if (act === "delete" && !confirm(`Delete the campaign “${c?.name}”?`)) return;
   if (act === "run-now" && !confirm(`Send “${c?.name}” to its ${c?.contactsCount} contacts now?`)) return;
   if (act === "cancel" && !confirm(c?.held || c?.running
@@ -819,6 +830,32 @@ $("campList").addEventListener("click", async (e) => {
   const req = api(`/api/campaigns/${id}/${act}`, { method: "POST" }).then(r => { if (!r.ok) alert(r.error); pollServer(); });
   if (act === "run-now" || act === "resume-run") setTimeout(pollServer, 1000); else await req;
 });
+
+// Put a saved campaign's contacts and message back on the page (e.g. to send it with Manual mode)
+async function loadCampaignIntoPage(id) {
+  const r = await api(`/api/campaigns/${id}/page`);
+  if (!r.ok) return alert(r.error);
+  const p = r.page;
+  const q = (v) => /[",\n]/.test(v) ? `"${String(v).replace(/"/g, '""')}"` : v;
+  $("csvText").value = [p.headers.map(q).join(","), ...p.rows.map(row => row.map(q).join(","))].join("\n");
+  if (p.cc) $("cc").value = p.cc;
+  $("msg").value = p.msg;
+  $("tplParams").value = p.tplParams || "";
+  if (p.tplName) $("tplName").value = p.tplName;
+  if (p.tplLang) $("tplLang").value = p.tplLang;
+  $("apiType").value = p.apiType;
+  $("apiType").dispatchEvent(new Event("change"));
+  // Attachment: a link can be restored; a file has to be chosen again
+  $("attClear").click();
+  if (r.media?.source === "link" && r.media.link) {
+    $("attLink").value = r.media.link; $("attLinkKind").value = r.media.kind;
+    $("attLink").dispatchEvent(new Event("input"));
+  }
+  loadContacts();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+  const note = r.media?.source === "file" ? ` Its attachment (${r.media.filename}) isn't loaded; choose the file again if you need it.` : "";
+  $("contactInfo").textContent += ` Loaded from campaign “${r.name}”.${note}`;
+}
 
 async function exportCampaignResults(id) {
   const r = await api(`/api/campaigns/${id}/results`);
