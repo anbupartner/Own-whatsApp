@@ -231,6 +231,26 @@
   .dnc-list table td { white-space: normal; }
   #dncModal form { max-width: 560px; }
   #campEditModal form { max-width: 560px; }
+  #kpiModal form { max-width: 720px; }
+  .kpi-sec { margin-top: 16px; }
+  .kpi-sec h3 { display: flex; align-items: center; gap: 8px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
+  .tile { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--card); min-width: 0; }
+  .tile .lbl { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+  .tile .val { font-family: Poppins, system-ui, sans-serif; font-size: 22px; font-weight: 600; color: var(--text); line-height: 1.25; margin-top: 2px; }
+  .tile .sub { font-size: 12px; color: var(--muted); }
+  .tile .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+  .seg { display: flex; gap: 2px; height: 12px; border-radius: 6px; overflow: hidden; background: var(--line); margin: 12px 0 6px; }
+  .seg > span { display: block; height: 100%; min-width: 0; }
+  .c-ok { background: var(--ok); } .c-err { background: var(--err); } .c-skip { background: var(--muted); opacity: .45; } .c-left { background: var(--line); }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--muted); }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+  .pill { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 99px; }
+  .pill.live { background: var(--warn-soft); color: var(--warn); }
+  .pill.done { background: var(--ok-soft); color: var(--ok); }
+  .pill.bad { background: var(--err-soft); color: var(--err); }
+  .rate-bar { display: inline-block; width: 60px; height: 6px; border-radius: 3px; background: var(--line); vertical-align: middle; margin-right: 6px; overflow: hidden; }
+  .rate-bar > span { display: block; height: 100%; background: var(--ok); }
   .tools { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 
   /* Save as campaign */
@@ -818,6 +838,21 @@ This is a quick update from our team. Reply STOP if you don't want these message
   <img src="/brand/mark.svg" alt="" width="18" height="18" />
   <span>NexGrowth Partner · Premium growth partner</span>
 </footer>
+
+<!-- Campaign performance (KPIs) -->
+<div id="kpiModal" class="login hidden">
+  <form id="kpiForm" class="card" novalidate>
+    <div class="row" style="align-items:flex-start">
+      <div class="grow">
+        <h2 style="margin:0">📊 <span id="kpiName"></span></h2>
+        <p class="hint" style="margin-top:4px" id="kpiSub"></p>
+      </div>
+      <button type="button" id="kpiClose" aria-label="Close">✕</button>
+    </div>
+    <div id="kpiBody"></div>
+    <p class="hint" style="margin-top:14px">“Sent” means WhatsApp accepted the message. Delivered and read receipts need Meta webhooks, which aren't set up.</p>
+  </form>
+</div>
 
 <!-- Edit a campaign's speed and schedule -->
 <div id="campEditModal" class="login hidden">
@@ -1635,6 +1670,7 @@ function renderCampaigns(st) {
         ${runButtons}
         ${scheduleButton}
         <button data-act="edit" data-id="${id}">⏱ Edit</button>
+        <button data-act="kpi" data-id="${id}">📊 Performance</button>
         <button data-act="load" data-id="${id}"${st.apiConfigured ? "" : `class="primary"`}>Load into page</button>
         <button data-act="export" data-id="${id}" ${c.lastResultsCount ? "" : "disabled"}>Export last run</button>
         <button data-act="delete" data-id="${id}" class="danger" ${c.running ? "disabled title=\"Stop or cancel the run first\"" : ""}>Delete</button>
@@ -1658,6 +1694,7 @@ $("campList").addEventListener("click", async (e) => {
   if (act === "export") return exportCampaignResults(id);
   if (act === "load") return loadCampaignIntoPage(id);
   if (act === "edit") return openCampEdit(id);
+  if (act === "kpi") return openKpi(id);
   if (act === "delete" && !confirm(`Delete the campaign “${c?.name}”?`)) return;
   if (act === "run-now" && !confirm(`Send “${c?.name}” to its ${c?.contactsCount} contacts now?`)) return;
   if (act === "cancel" && !confirm(c?.held || c?.running
@@ -2022,6 +2059,118 @@ $("testSendBtn").onclick = async () => {
 };
 $("testTo").addEventListener("keydown", (e) => { if (e.key === "Enter") $("testSendBtn").click(); });
 $("modeTabs").addEventListener("click", () => setTimeout(updateModeUi, 0));
+
+// ---------- Campaign performance (KPIs) ----------
+let kpiId = null, kpiTimer = null;
+function fmtDur(s) {
+  if (s == null || !isFinite(s)) return "—";
+  s = Math.max(0, Math.round(s));
+  if (s < 60) return `${s} s`;
+  const h = Math.floor(s / 3600), m = Math.round((s % 3600) / 60);
+  return h ? `${h} h ${m} min` : `${m} min`;
+}
+const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
+const tile = (label, value, sub = "", dot = "") =>
+  `<div class="tile"><div class="lbl">${dot ? `<span class="dot ${dot}"></span>` : ""}${label}</div><div class="val">${value}</div>${sub ? `<div class="sub">${sub}</div>` : ""}</div>`;
+// One segmented bar (sent / failed / skipped / not sent) with a labelled legend; hover shows counts
+function segBar(s, total) {
+  const parts = [
+    ["Sent", s.sent, "c-ok"], ["Failed", s.failed, "c-err"], ["Skipped (do not contact)", s.skipped, "c-skip"],
+    ["Not sent yet", s.left ?? s.notSent ?? 0, "c-left"],
+  ].filter(p => p[1] > 0);
+  const bar = parts.map(([l, n, c]) => `<span class="${c}" style="flex:${n}" title="${l}: ${n} of ${total} (${pct(n, total)}%)"></span>`).join("");
+  const legend = parts.map(([l, n, c]) => `<span><i class="${c}"></i>${l} ${n}</span>`).join("");
+  return `<div class="seg" role="img" aria-label="${parts.map(p => `${p[0]} ${p[1]}`).join(", ")}">${bar}</div><div class="legend">${legend}</div>`;
+}
+function failuresHtml(list) {
+  if (!list || !list.length) return "";
+  return `<table class="mini errs" style="width:100%;margin-top:10px"><tr><td><b>Why messages failed</b></td><td style="width:70px"><b>Count</b></td></tr>${
+    list.map(f => `<tr><td>${esc(f.reason)}${metaTip(null, f.reason)}</td><td>${f.count}</td></tr>`).join("")}</table>`;
+}
+function renderKpi(st) {
+  $("kpiName").textContent = st.name;
+  $("kpiSub").textContent = `${st.contactsCount} contacts · speed ${st.interval.min}–${st.interval.max} s${st.interval.batchSize && st.interval.batchPause ? `, break ${st.interval.batchPause} s every ${st.interval.batchSize}` : ""} (≈ one every ${st.secondsPerMessage} s)`;
+  let h = "";
+  const cur = st.current;
+  if (cur) {
+    const label = cur.state === "stopped" ? `<span class="pill bad">Stopped</span>` : cur.state === "waiting" ? `<span class="pill live">Waiting for next cron call</span>` : `<span class="pill live">● Sending now</span>`;
+    h += `<section class="kpi-sec"><h3 class="sec">Current run ${label}</h3>
+      <div class="tiles">
+        ${tile("Progress", `${cur.done}/${cur.total}`, `${pct(cur.done, cur.total)}% done`)}
+        ${tile("Sent", cur.sent, `${pct(cur.sent, Math.max(1, cur.sent + cur.failed))}% of attempts`, "c-ok")}
+        ${tile("Failed", cur.failed, "", "c-err")}
+        ${tile("Speed", `${cur.perMinute}`, "messages / minute")}
+        ${tile("Time left", cur.state === "stopped" ? "Paused" : `≈ ${fmtDur(cur.etaSeconds)}`, `${cur.remaining} to go`)}
+        ${tile("Started", new Date(cur.startedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }), new Date(cur.startedAt).toLocaleDateString())}
+      </div>
+      ${segBar({ ...cur, left: cur.remaining }, cur.total)}
+      ${failuresHtml(cur.failures)}
+    </section>`;
+  }
+  const last = st.last;
+  if (last) {
+    const attempted = last.sent + last.failed;
+    const dur = last.startedAt && last.finishedAt ? (Date.parse(last.finishedAt) - Date.parse(last.startedAt)) / 1000 : null;
+    const outcome = last.outcome === "cancelled" ? `<span class="pill bad">Cancelled</span>` : last.outcome === "error" ? `<span class="pill bad">Stopped by an error</span>` : `<span class="pill done">Completed</span>`;
+    h += `<section class="kpi-sec"><h3 class="sec">Last completed run ${outcome}</h3>
+      <div class="tiles">
+        ${tile("Success rate", `${pct(last.sent, attempted)}%`, `${last.sent} of ${attempted} attempts`)}
+        ${tile("Sent", last.sent, `of ${last.total} contacts`, "c-ok")}
+        ${tile("Failed", last.failed, "", "c-err")}
+        ${tile("Skipped / not sent", last.skipped + last.notSent, last.skipped ? `${last.skipped} do not contact` : "")}
+        ${tile("Duration", fmtDur(dur), dur && attempted ? `${(attempted / (dur / 60)).toFixed(1)} / min` : "")}
+        ${tile("Finished", last.finishedAt ? new Date(last.finishedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—", last.finishedAt ? new Date(last.finishedAt).toLocaleDateString() : "")}
+      </div>
+      ${segBar(last, last.total)}
+      ${last.note ? `<p class="st-failed" style="font-size:13px">${esc(last.note)}</p>` : ""}
+      ${failuresHtml(st.lastFailures)}
+      <div class="row" style="margin-top:10px"><button type="button" id="kpiExport">⬇ Export last run (CSV)</button></div>
+    </section>`;
+  }
+  if (st.runStats.length > 1 || (st.runStats.length && !st.current)) {
+    const t = st.totals;
+    h += `<section class="kpi-sec"><h3 class="sec">All runs (${t.runs})</h3>
+      <div class="tiles" style="margin-bottom:10px">
+        ${tile("Total sent", t.sent, "", "c-ok")}
+        ${tile("Total failed", t.failed, "", "c-err")}
+        ${tile("Overall success", `${pct(t.sent, t.sent + t.failed)}%`)}
+        ${tile("Skipped / not sent", t.skipped + t.notSent)}
+      </div>
+      <div class="table-wrap" style="max-height:240px;margin-top:0"><table>
+        <thead><tr><th>Finished</th><th>How</th><th>Sent</th><th>Failed</th><th>Skipped / not sent</th><th>Success</th></tr></thead>
+        <tbody>${st.runStats.map(s => { const sr = pct(s.sent, s.sent + s.failed); return `<tr>
+          <td>${new Date(s.finishedAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" })}</td>
+          <td>${s.trigger === "scheduled" ? "Scheduled" : "Start now"}${s.outcome !== "finished" ? ` · ${s.outcome}` : ""}</td>
+          <td>${s.sent}</td><td>${s.failed}</td><td>${s.skipped + s.notSent}</td>
+          <td><span class="rate-bar" aria-hidden="true"><span style="width:${sr}%"></span></span>${sr}%</td></tr>`; }).join("")}</tbody>
+      </table></div>
+    </section>`;
+  }
+  if (!h) h = `<div class="empty" style="margin-top:12px"><span class="title">No runs yet</span>Numbers appear here once this campaign has sent (Start now, or its scheduled time).</div>`;
+  $("kpiBody").innerHTML = h;
+  const ex = $("kpiExport"); if (ex) ex.onclick = () => exportCampaignResults(st.id);
+}
+async function loadKpi() {
+  if (!kpiId) return;
+  const r = await api(`/api/campaigns/${kpiId}/stats`);
+  if (!r.ok) { $("kpiBody").innerHTML = `<p class="st-failed">${esc(r.error)}</p>`; return; }
+  renderKpi(r.stats);
+}
+function openKpi(id) {
+  kpiId = id;
+  $("kpiName").textContent = campaignsById[id]?.name || "";
+  $("kpiBody").innerHTML = `<p class="hint">Loading…</p>`;
+  $("kpiModal").classList.remove("hidden");
+  loadKpi();
+  clearInterval(kpiTimer);
+  // live numbers while it's open (every 3 s; the popup has no inputs, so nothing gets wiped)
+  kpiTimer = setInterval(() => { if (!document.hidden) loadKpi(); }, 3000);
+}
+function closeKpi() { $("kpiModal").classList.add("hidden"); clearInterval(kpiTimer); kpiId = null; }
+$("kpiClose").onclick = closeKpi;
+$("kpiModal").addEventListener("click", (e) => { if (e.target.id === "kpiModal") closeKpi(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("kpiModal").classList.contains("hidden")) closeKpi(); });
+$("kpiForm").addEventListener("submit", (e) => e.preventDefault());
 
 // ---------- Edit a campaign's speed and schedule ----------
 let ceId = null, ceScheduleTouched = false;

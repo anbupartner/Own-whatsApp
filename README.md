@@ -78,6 +78,7 @@ Each campaign has its own card showing its status, next run, live progress and a
 | **Pause schedule** | No new scheduled runs. A run that is sending keeps going (use Stop for that). |
 | **Resume schedule** | Turns the schedule back on and works out the next run time. |
 | **⏱ Edit** | Change this campaign's sending speed (wait at least / at most, break every N, break length) and when it sends. Applies at once, also to a run that is sending (from its next message). |
+| **📊 Performance** | KPIs for the run that is sending now (progress, sent, failed, speed, time left), the last completed run (success rate, sent, failed, skipped, duration, failure reasons with fixes) and all runs (last 30). Updates live while open. "Sent" = accepted by WhatsApp; delivered/read need webhooks. |
 | **Export last run** | CSV with each contact's result (sent / failed and the reason). |
 | **Delete** | Removes the campaign. Stop or cancel a sending run first. |
 
