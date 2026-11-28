@@ -28,14 +28,16 @@ This uses Meta's official WhatsApp Business Cloud API.
 
 **In the app:** admins open the **Setup** tab (it shows a red **!** until the API is set up). It has a live checklist,
 a step-by-step guide (Meta app, token and Phone number ID, Vercel settings, templates, permanent token, your own number,
-payment), **Check connection** (asks Meta whether the token and Phone number ID work and shows the number, name and quality rating),
+payment), a **WhatsApp settings** box where an admin pastes the Phone number ID and access token (saved encrypted in the database,
+active immediately, no redeploy; `WHATSAPP_TOKEN` / `WHATSAPP_PHONE_NUMBER_ID` in Vercel or `.env` still work and take priority),
+**Check connection** (asks Meta whether the token and Phone number ID work and shows the number, name and quality rating),
 **Send a test message** (Meta's `hello_world` template) and plain-language fixes for the common Meta error codes.
 The short version:
 
 1. Create an app at https://developers.facebook.com and add the **WhatsApp** product.
 2. Under **WhatsApp → API Setup**, copy the **access token** and the **Phone number ID**.
    For a lasting token, create a System User token in Business Settings.
-3. Copy `.env.example` to `.env`, fill in both values, and restart with `npm start`.
+3. Paste both values in **Setup → WhatsApp settings** and click **Save & check** (or put them in `.env` and restart `npm start`).
 4. Choose a message type:
    - **Template:** required to start a conversation, or when more than 24 hours have passed since the contact's last message.
      Create templates in WhatsApp Manager and wait for Meta to approve them. `hello_world` is approved by default for testing.

@@ -69,6 +69,7 @@
   .conn.ok { background: var(--ok-soft); color: var(--ok); }
   .conn.bad { background: var(--err-soft); color: var(--err); }
   .conn.info { background: var(--card-2); color: var(--muted); }
+  .wa-settings { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
   .test-box { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
   .guide-card details.step { border: 1px solid var(--line); border-radius: 10px; margin-bottom: 8px; background: var(--card); }
   .guide-card details.step > summary { list-style: none; cursor: pointer; padding: 10px 12px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
@@ -529,7 +530,7 @@ This is a quick update from our team. Reply STOP if you don't want these message
 
       <!-- Automatic -->
       <div id="apiControls" class="hidden">
-        <div class="notice hidden" id="apiSetupNote">Automatic sending needs the WhatsApp Cloud API (<code>WHATSAPP_TOKEN</code> and <code>WHATSAPP_PHONE_NUMBER_ID</code>). Until then, use Manual.
+        <div class="notice hidden" id="apiSetupNote">Automatic sending needs the WhatsApp Cloud API to be set up. Until then, use Manual.
           <span id="setupLinkWrap"><br><button type="button" class="link" id="openSetupBtn">Open the setup guide →</button></span>
           <span id="setupAskAdmin" class="hidden"><br>Ask your admin to set it up.</span></div>
         <div class="send-main">
@@ -654,8 +655,28 @@ This is a quick update from our team. Reply STOP if you don't want these message
       <section class="card">
         <h3 class="sec">Status</h3>
         <ul class="checklist" id="setupChecklist"></ul>
+
+        <div class="wa-settings">
+          <h3 class="sec">WhatsApp settings</h3>
+          <div id="waEnvNote" class="hint hidden" style="margin-top:0">Set in Vercel (<code>WHATSAPP_TOKEN</code> / <code>WHATSAPP_PHONE_NUMBER_ID</code>). To manage them here instead, remove them in Vercel and redeploy.</div>
+          <div id="waForm">
+            <label for="waPhoneId" style="margin-top:0">Phone number ID</label>
+            <input id="waPhoneId" inputmode="numeric" placeholder="e.g. 123456789012345" autocomplete="off" spellcheck="false" />
+            <label for="waToken">Access token <span class="hint" id="waTokenHint" style="font-weight:400"></span></label>
+            <div class="pw-wrap">
+              <input id="waToken" type="password" placeholder="EAA…" autocomplete="off" spellcheck="false" />
+              <button type="button" class="pw-eye" data-for="waToken" aria-label="Show token">👁</button>
+            </div>
+            <div class="hint">Copied from Meta → your app → WhatsApp → API Setup (steps 1–3). Saved encrypted; works right away, no redeploy.</div>
+            <div class="row" style="margin-top:10px">
+              <button class="primary" id="waSaveBtn">💾 Save &amp; check</button>
+              <button class="danger hidden" id="waClearBtn">Remove</button>
+            </div>
+          </div>
+        </div>
+
         <div class="row" style="margin-top:12px">
-          <button class="primary" id="checkConnBtn">🔌 Check connection</button>
+          <button id="checkConnBtn">🔌 Check connection</button>
         </div>
         <div id="connResult" class="conn hidden"></div>
 
@@ -709,19 +730,15 @@ This is a quick update from our team. Reply STOP if you don't want these message
         </details>
 
         <details class="step">
-          <summary><span class="n">4</span>Add them to Vercel</summary>
+          <summary><span class="n">4</span>Save them here</summary>
           <div class="body">
             <ol>
-              <li>Vercel → your project → <b>Settings → Environment Variables</b> → <b>Add Environment Variable</b>, tick <b>Production</b>:
-                <table class="mini">
-                  <tr><td><code>WHATSAPP_TOKEN</code></td><td>the access token</td></tr>
-                  <tr><td><code>WHATSAPP_PHONE_NUMBER_ID</code></td><td>the Phone number ID</td></tr>
-                </table>
-              </li>
-              <li><b>Deployments</b> → <b>⋯</b> on the top deployment → <b>Redeploy</b> (new values only apply after a redeploy).</li>
-              <li>Reload this page. The status above turns green; click <b>Check connection</b>, then <b>Send test</b>.</li>
+              <li>In <b>WhatsApp settings</b> on this page, paste the <b>Phone number ID</b> and the <b>access token</b>.</li>
+              <li>Click <b>Save &amp; check</b>. The app saves them (the token encrypted) and asks Meta right away whether they work. No Vercel change or redeploy needed.</li>
+              <li>Then use <b>Send a test message</b> with your own number.</li>
+              <li>Later (step 6) paste the permanent token the same way: leave the Phone number ID, paste the new token, <b>Save &amp; check</b>.</li>
             </ol>
-            <p class="hint">Running the app on your own computer instead? Put the same two lines in the <code>.env</code> file and restart <code>npm start</code>.</p>
+            <p class="hint">Prefer Vercel? You can set <code>WHATSAPP_TOKEN</code> and <code>WHATSAPP_PHONE_NUMBER_ID</code> in Vercel → Settings → Environment Variables and redeploy; those then take priority over the values saved here. On your own computer you can also put them in the <code>.env</code> file.</p>
           </div>
         </details>
 
@@ -746,7 +763,7 @@ This is a quick update from our team. Reply STOP if you don't want these message
               <li>Open <a href="https://business.facebook.com/settings/system-users" target="_blank" rel="noopener">Business settings → Users → System users</a> → <b>Add</b>, role <b>Admin</b>.</li>
               <li><b>Assign assets</b>: your app (full control) and your WhatsApp account (full control).</li>
               <li><b>Generate new token</b>: choose your app, expiry <b>Never</b>, and tick <code>whatsapp_business_messaging</code> and <code>whatsapp_business_management</code>.</li>
-              <li>Replace <code>WHATSAPP_TOKEN</code> in Vercel with this token and redeploy.</li>
+              <li>Paste it in <b>WhatsApp settings</b> on this page (token box only) and click <b>Save &amp; check</b>.</li>
             </ol>
           </div>
         </details>
@@ -757,7 +774,7 @@ This is a quick update from our team. Reply STOP if you don't want these message
             <ol>
               <li>In <b>WhatsApp → API Setup</b> (or WhatsApp Manager → <b>Phone numbers</b>) click <b>Add phone number</b>, enter your business name and the number, and verify it by SMS or call.</li>
               <li>The number must <b>not</b> be in use on the normal WhatsApp or WhatsApp Business app at the same time. Use a new number, or delete that WhatsApp account from the phone first.</li>
-              <li>Replace <code>WHATSAPP_PHONE_NUMBER_ID</code> in Vercel with the new number's Phone number ID and redeploy.</li>
+              <li>Put the new number's Phone number ID in <b>WhatsApp settings</b> on this page and click <b>Save &amp; check</b>.</li>
               <li>Add a <b>payment method</b> in WhatsApp Manager → <b>Payment settings</b>. Template messages to customers are charged per message (rates depend on country and category).</li>
               <li>Optional: <b>verify your business</b> in Business settings → Security Center to raise how many people you can message per day (new numbers start low).</li>
             </ol>
@@ -769,13 +786,13 @@ This is a quick update from our team. Reply STOP if you don't want these message
           <div class="body">
             <table class="mini errs">
               <tr><td><b>Recipient phone number not in allowed list</b> (131030)</td><td>With the test number, add the recipient under <b>To</b> in API Setup (max 5), or switch to your own number.</td></tr>
-              <tr><td><b>Error validating access token / session has expired</b> (190)</td><td>The 24-hour token ran out. Make a permanent token (step 6) and redeploy.</td></tr>
+              <tr><td><b>Error validating access token / session has expired</b> (190)</td><td>The 24-hour token ran out. Make a permanent token (step 6) and paste it in WhatsApp settings above.</td></tr>
               <tr><td><b>Template name does not exist in the translation</b> (132001)</td><td>Check the template name and language code match WhatsApp Manager exactly, and that it's approved.</td></tr>
               <tr><td><b>Number of parameters does not match</b> (132000)</td><td>Give one value line for each {{1}}, {{2}}… in the template.</td></tr>
               <tr><td><b>Re-engagement message</b> (131047)</td><td>More than 24 h since the person last wrote to you: use a template instead of free text.</td></tr>
               <tr><td><b>Message undeliverable</b> (131026)</td><td>The number isn't on WhatsApp, or is written wrong. Check the country code.</td></tr>
               <tr><td><b>Rate limit hit</b> (130429 / 131056)</td><td>Sending too fast: raise the gaps under <b>Sending speed</b>.</td></tr>
-              <tr><td><b>Object with ID … does not exist</b> (100)</td><td><code>WHATSAPP_PHONE_NUMBER_ID</code> is wrong (it's the ID, not the phone number), or the token belongs to another app.</td></tr>
+              <tr><td><b>Object with ID … does not exist</b> (100)</td><td>The Phone number ID is wrong (it's the ID from API Setup, not the phone number), or the token belongs to another app.</td></tr>
             </table>
           </div>
         </details>
@@ -1621,7 +1638,7 @@ function showView(v) {
   try { localStorage.setItem("wa_view", v === "users" ? "send" : v); } catch {}
   if (v === "campaigns") pollServer();
   if (v === "users") loadUsers();
-  if (v === "setup") renderSetupChecklist();
+  if (v === "setup") { renderSetupChecklist(); loadWaSettings(); }
 }
 
 // ---------- Users (admins) ----------
@@ -1796,7 +1813,7 @@ function renderSetupChecklist() {
     { ok: Boolean(cfg.storage && cfg.storageOk !== false), title: "Database connected", note: cfg.storage ? `Using ${cfg.storage === "postgres" ? "Neon Postgres" : cfg.storage === "redis" ? "Upstash Redis" : "local files"}` : "Connect Neon or Upstash in Vercel → Storage" },
     { ok: !cfg.authMisconfigured, title: "Login password set", note: cfg.authRequired ? "APP_PASSWORD is set" : "Local mode: no login" },
     ...(cfg.platform === "vercel" ? [{ ok: Boolean(cfg.cronConfigured), title: "Cron secret set", note: cfg.cronConfigured ? "CRON_SECRET is set (scheduled campaigns)" : "Add CRON_SECRET in Vercel for scheduled campaigns" }] : []),
-    { ok: Boolean(cfg.apiConfigured), title: "WhatsApp Cloud API", note: cfg.apiConfigured ? `Token and Phone number ID set (ID …${String(cfg.phoneNumberId || "").replace("…", "")})` : "Add WHATSAPP_TOKEN and WHATSAPP_PHONE_NUMBER_ID (steps 1–4)" },
+    { ok: Boolean(cfg.apiConfigured), title: "WhatsApp Cloud API", note: cfg.apiConfigured ? `Token and Phone number ID set ${cfg.whatsappSource === "env" ? "in Vercel" : "in the app"} (ID …${String(cfg.phoneNumberId || "").replace("…", "")})` : "Enter the Phone number ID and access token below (steps 1–4)" },
   ];
   $("setupChecklist").innerHTML = items.map(i => `
     <li><span class="ic ${i.ok ? "ok" : "no"}">${i.ok ? "✓" : "!"}</span><div><b>${esc(i.title)}</b><small>${esc(i.note)}</small></div></li>`).join("");
@@ -1809,12 +1826,12 @@ function renderSetupChecklist() {
 // Plain-language fixes for the most common Meta error codes
 const META_TIPS = {
   131030: "With the test number, add this number under “To” in WhatsApp → API Setup (max 5), or switch to your own number (step 7).",
-  190: "The access token has expired or is wrong. Make a permanent token (step 6), update WHATSAPP_TOKEN and redeploy.",
+  190: "The access token has expired or is wrong. Make a permanent token (step 6) and paste it in WhatsApp settings on the Setup page.",
   132001: "The template name or language doesn't match WhatsApp Manager, or it isn't approved yet.",
   132000: "Give one value line for each {{1}}, {{2}}… in the template.",
   131047: "More than 24 hours since this person wrote to you: send a template instead of free text.",
   131026: "This number isn't on WhatsApp or is written wrong. Check the country code.",
-  100: "WHATSAPP_PHONE_NUMBER_ID is probably wrong (use the ID, not the phone number), or the token is for a different app.",
+  100: "The Phone number ID is probably wrong (use the ID from API Setup, not the phone number), or the token is for a different app.",
   131056: "Too many messages to the same person too fast. Wait a little.",
   130429: "Sending too fast. Raise the gaps under Sending speed.",
 };
@@ -1823,6 +1840,48 @@ function metaTip(code, message) {
   return META_TIPS[c] ? `<br><b>Fix:</b> ${esc(META_TIPS[c])}` : "";
 }
 function showConn(el, kind, html) { const b = $(el); b.className = "conn " + kind; b.innerHTML = html; }
+
+// ---- WhatsApp settings saved in the app ----
+async function loadWaSettings() {
+  const r = await api("/api/setup/settings");
+  if (!r.ok) return;
+  const s = r.settings;
+  $("waEnvNote").classList.toggle("hidden", !s.fromEnv);
+  $("waForm").classList.toggle("hidden", !s.canEdit);
+  if (document.activeElement !== $("waPhoneId")) $("waPhoneId").value = s.phoneNumberId || "";
+  $("waToken").value = "";
+  $("waToken").placeholder = s.tokenSet ? "Saved: leave empty to keep it" : "EAA…";
+  $("waTokenHint").textContent = s.tokenSet ? `(saved, ends ${s.tokenHint})` : "";
+  $("waClearBtn").classList.toggle("hidden", !(s.source === "app"));
+  if (s.error) showConn("connResult", "bad", esc(s.error));
+}
+$("waSaveBtn").onclick = async () => {
+  const phoneNumberId = $("waPhoneId").value.trim();
+  const token = $("waToken").value.trim();
+  if (!phoneNumberId) { $("waPhoneId").focus(); return showConn("connResult", "bad", "Paste the Phone number ID."); }
+  $("waSaveBtn").disabled = true;
+  showConn("connResult", "info", "Saving and checking with Meta…");
+  try {
+    const r = await api("/api/setup/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phoneNumberId, token }) });
+    if (!r.ok) return showConn("connResult", "bad", esc(r.error));
+    const c = r.check || {};
+    if (c.ok) showConn("connResult", "ok", `✅ Saved and connected.<br>Number: <b>${esc(c.phone || "?")}</b>${c.name ? ` · Name: <b>${esc(c.name)}</b>` : ""}${c.quality ? ` · Quality: <b>${esc(c.quality)}</b>` : ""}<br>Now send a test message below.`);
+    else showConn("connResult", "bad", `Saved, but Meta refused it: ${esc(c.error || "unknown error")}${metaTip(c.code, c.error)}`);
+    await loadConfig();
+    await loadWaSettings();
+  } finally {
+    $("waSaveBtn").disabled = false;
+  }
+};
+$("waClearBtn").onclick = async () => {
+  if (!confirm("Remove the saved WhatsApp token and Phone number ID? Automatic sending stops until they're added again.")) return;
+  const r = await api("/api/setup/settings/clear", { method: "POST" });
+  if (!r.ok) return alert(r.error);
+  showConn("connResult", "info", "Removed.");
+  await loadConfig();
+  await loadWaSettings();
+};
+["waPhoneId", "waToken"].forEach(id => $(id).addEventListener("keydown", (e) => { if (e.key === "Enter") $("waSaveBtn").click(); }));
 
 $("checkConnBtn").onclick = async () => {
   $("checkConnBtn").disabled = true;
