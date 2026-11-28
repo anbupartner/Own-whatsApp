@@ -50,6 +50,29 @@
   @media (max-width: 520px) { .product { display: none; } }
   .login-logo { display: block; width: 100%; max-width: 260px; margin: 0 auto 4px; }
   .login-sub { text-align: center; font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+  .pw-label { display: flex; align-items: baseline; justify-content: space-between; }
+  .pw-label button.link { font-size: 12px; }
+  .pw-wrap { position: relative; }
+  .pw-wrap input { padding-right: 42px; }
+  .pw-eye { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); border: none; background: none; padding: 4px 8px; font-size: 15px; opacity: .6; }
+  .pw-eye:hover { opacity: 1; }
+  .forgot { margin: 12px 0 14px; padding: 14px; border-radius: 10px; background: var(--card-2); font-size: 14px; }
+  .forgot p { margin: 6px 0 0; }
+  .usermenu { position: relative; }
+  .usermenu > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px; padding: 4px 10px 4px 4px; border: 1px solid var(--line); border-radius: 999px; font-weight: 600; font-size: 13px; }
+  .usermenu > summary::-webkit-details-marker { display: none; }
+  .avatar.sm { width: 26px; height: 26px; font-size: 12px; }
+  .usermenu .menu { position: absolute; right: 0; top: calc(100% + 6px); min-width: 210px; z-index: 10; background: var(--card); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); padding: 6px; display: flex; flex-direction: column; }
+  .usermenu .menu button { border: none; justify-content: flex-start; width: 100%; }
+  .usermenu .menu button:hover { background: var(--card-2); }
+  .menu-head { padding: 8px 10px 10px; border-bottom: 1px solid var(--line); margin-bottom: 4px; display: flex; flex-direction: column; font-size: 13px; }
+  .menu-head span { color: var(--muted); font-size: 12px; }
+  @media (max-width: 520px) { #meName { display: none; } .usermenu > summary { padding: 3px; } }
+  .temp { margin-top: 12px; padding: 12px 14px; border-radius: 10px; background: var(--ok-soft); border: 1px solid var(--ok); font-size: 14px; }
+  .temp code { font-size: 17px; font-weight: 700; letter-spacing: .5px; padding: 2px 8px; border-radius: 6px; background: var(--card); user-select: all; }
+  .role { font-size: 12px; padding: 2px 9px; border-radius: 99px; background: var(--card-2); color: var(--muted); font-weight: 600; }
+  .role.admin { background: var(--accent-soft); color: var(--accent-strong); }
+  .you { font-size: 11px; color: var(--muted); margin-left: 4px; }
   footer { max-width: 1180px; margin: 0 auto; padding: 0 16px 28px; display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
   footer img { width: 18px; height: 18px; }
   nav.views { display: flex; gap: 4px; background: var(--bg); padding: 4px; border-radius: 999px; }
@@ -214,10 +237,49 @@
       <img class="login-logo" src="/brand/logo-on-light.svg" alt="NexGrowth Partner" />
     </picture>
     <div class="login-sub">WhatsApp Bulk Sender</div>
-    <label for="loginPw">Password</label>
-    <input id="loginPw" type="password" autocomplete="current-password" required />
-    <div class="st-failed" id="loginErr" style="min-height:20px;margin-top:6px;font-size:13px"></div>
-    <button class="primary big" type="submit" style="width:100%">Log in</button>
+    <div id="loginFields">
+      <label for="loginUser">Username</label>
+      <input id="loginUser" autocomplete="username" autocapitalize="none" spellcheck="false" required />
+      <div class="pw-label"><label for="loginPw">Password</label><button type="button" class="link" id="forgotBtn">Forgot password?</button></div>
+      <div class="pw-wrap">
+        <input id="loginPw" type="password" autocomplete="current-password" required />
+        <button type="button" class="pw-eye" data-for="loginPw" aria-label="Show password">👁</button>
+      </div>
+      <div class="st-failed" id="loginErr" style="min-height:20px;margin-top:6px;font-size:13px"></div>
+      <button class="primary big" type="submit" style="width:100%" id="loginBtn">Log in</button>
+    </div>
+    <div id="forgotPanel" class="hidden">
+      <div class="forgot">
+        <b>Forgot your password?</b>
+        <p>Ask your NexGrowth admin to reset it. They'll give you a temporary password, and you'll choose a new one when you log in.</p>
+        <p class="hint">Admin locked out? Log in with the admin username and the recovery password (<code>APP_PASSWORD</code>) set in Vercel. You'll then be asked to choose a new password.</p>
+      </div>
+      <button type="button" class="big" style="width:100%" id="backToLogin">← Back to log in</button>
+    </div>
+  </form>
+</div>
+
+<!-- Change password (also forced after an admin reset) -->
+<div id="pwModal" class="login hidden">
+  <form id="pwForm" class="card">
+    <h2 style="margin-bottom:4px">Set a new password</h2>
+    <p class="hint" id="pwIntro" style="margin-top:0">Choose a password with at least 8 characters.</p>
+    <div id="pwCurrentWrap">
+      <label for="pwCurrent">Current password</label>
+      <input id="pwCurrent" type="password" autocomplete="current-password" />
+    </div>
+    <label for="pwNew">New password</label>
+    <div class="pw-wrap">
+      <input id="pwNew" type="password" autocomplete="new-password" minlength="8" required />
+      <button type="button" class="pw-eye" data-for="pwNew" aria-label="Show password">👁</button>
+    </div>
+    <label for="pwNew2">Type it again</label>
+    <input id="pwNew2" type="password" autocomplete="new-password" minlength="8" required />
+    <div class="st-failed" id="pwErr" style="min-height:20px;margin-top:6px;font-size:13px"></div>
+    <div class="row">
+      <button type="button" id="pwCancel">Cancel</button>
+      <button class="primary grow" type="submit">Save new password</button>
+    </div>
   </form>
 </div>
 
@@ -231,10 +293,18 @@
     <nav class="views" id="viewNav">
       <button data-view="send" class="active">Send</button>
       <button data-view="campaigns">Campaigns<span class="count hidden" id="campCount"></span></button>
+      <button data-view="users" class="hidden" id="usersTab">Users</button>
     </nav>
     <div class="right">
       <span id="apiBadge" class="badge off">Checking…</span>
-      <button id="logoutBtn" class="hidden">Log out</button>
+      <details class="usermenu hidden" id="userMenu">
+        <summary><span class="avatar sm" id="meAvatar">?</span><span id="meName">Account</span></summary>
+        <div class="menu">
+          <div class="menu-head"><b id="meFull"></b><span id="meRole"></span></div>
+          <button id="changePwBtn">🔑 Change password</button>
+          <button id="logoutBtn">↩ Log out</button>
+        </div>
+      </details>
     </div>
   </div>
 </header>
@@ -442,6 +512,38 @@ This is a quick update from our team. Reply STOP if you don't want these message
     <div class="hint" id="platformHint" style="margin-bottom:12px"></div>
     <div id="campList"></div>
   </div>
+
+  <!-- ================= USERS VIEW (admins) ================= -->
+  <div id="viewUsers" class="hidden">
+    <div class="page-head">
+      <div>
+        <h2>Users</h2>
+        <p>People who can log in. New users and password resets get a one-time password they change at first login.</p>
+      </div>
+    </div>
+    <section class="card">
+      <h3 style="margin:0 0 4px;font-size:14px">＋ Add a user</h3>
+      <div class="row" style="margin-top:8px">
+        <input id="newUser" class="grow" placeholder="Username, e.g. priya" autocapitalize="none" spellcheck="false" maxlength="32" />
+        <input id="newName" class="grow" placeholder="Full name (optional)" maxlength="60" />
+        <select id="newRole" style="width:auto">
+          <option value="user">User</option>
+          <option value="admin">Admin</option>
+        </select>
+        <button class="primary" id="addUserBtn">Add user</button>
+      </div>
+      <div class="hint">Users can send and manage campaigns. Admins can also add users and reset passwords.</div>
+      <div class="temp hidden" id="tempBox"></div>
+    </section>
+    <section class="card" style="margin-top:14px">
+      <div class="table-wrap" style="margin-top:0;max-height:none">
+        <table>
+          <thead><tr><th>User</th><th>Role</th><th>Last login</th><th>Added</th><th></th></tr></thead>
+          <tbody id="usersBody"><tr><td colspan="5" class="hint">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
 </main>
 
 <footer>
@@ -461,31 +563,82 @@ let stopFlag = false;
 // ---------- Login and server config ----------
 let cfg = { platform: "local", maxUpload: { image: 5 * 1048576, document: 100 * 1048576 } };
 
-// Any API call answered with 401 shows the login screen
+// Any API call answered with 401 shows the login screen; 403 + mustChange asks for a new password
 const rawFetch = window.fetch.bind(window);
 window.fetch = async (...args) => {
   const r = await rawFetch(...args);
-  if (r.status === 401 && String(args[0]).startsWith("/api/")) showLogin();
+  if (String(args[0]).startsWith("/api/")) {
+    if (r.status === 401) showLogin();
+    else if (r.status === 403) r.clone().json().then(j => { if (j.mustChange) showPasswordForm(true); }).catch(() => {});
+  }
   return r;
 };
 
 function showLogin(msg) {
   $("login").classList.remove("hidden");
+  showForgot(false);
   if (msg) $("loginErr").textContent = msg;
-  setTimeout(() => $("loginPw").focus(), 50);
+  setTimeout(() => ($("loginUser").value ? $("loginPw") : $("loginUser")).focus(), 50);
 }
+function showForgot(on) {
+  $("loginFields").classList.toggle("hidden", on);
+  $("forgotPanel").classList.toggle("hidden", !on);
+}
+$("forgotBtn").onclick = () => showForgot(true);
+$("backToLogin").onclick = () => { showForgot(false); $("loginPw").focus(); };
+try { $("loginUser").value = localStorage.getItem("wa_user") || ""; } catch {}
+
+// Show / hide password buttons
+document.addEventListener("click", (e) => {
+  const b = e.target.closest(".pw-eye"); if (!b) return;
+  const i = $(b.dataset.for); i.type = i.type === "password" ? "text" : "password";
+  b.setAttribute("aria-label", i.type === "password" ? "Show password" : "Hide password");
+});
 
 $("loginForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   $("loginErr").textContent = "";
-  const r = await (await rawFetch("/api/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: $("loginPw").value }) })).json();
-  if (!r.ok) { $("loginErr").textContent = r.error; return; }
-  $("loginPw").value = "";
-  $("login").classList.add("hidden");
-  loadConfig();
-  pollServer();
+  $("loginBtn").disabled = true; $("loginBtn").textContent = "Logging in…";
+  try {
+    const username = $("loginUser").value.trim().toLowerCase();
+    const r = await (await rawFetch("/api/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username, password: $("loginPw").value }) })).json();
+    if (!r.ok) { $("loginErr").textContent = r.error; $("loginPw").select(); return; }
+    try { localStorage.setItem("wa_user", username); } catch {}
+    $("loginPw").value = "";
+    $("login").classList.add("hidden");
+    await loadConfig();
+    pollServer();
+  } finally {
+    $("loginBtn").disabled = false; $("loginBtn").textContent = "Log in";
+  }
 });
-$("logoutBtn").onclick = async () => { await rawFetch("/api/logout", { method: "POST" }); showLogin(); };
+$("logoutBtn").onclick = async () => { $("userMenu").open = false; await rawFetch("/api/logout", { method: "POST" }); showView("send"); showLogin(); };
+
+// ---- Change password ----
+let pwForced = false;
+function showPasswordForm(forced) {
+  pwForced = forced;
+  $("pwModal").classList.remove("hidden");
+  $("pwCurrentWrap").classList.toggle("hidden", forced);
+  $("pwCancel").classList.toggle("hidden", forced);
+  $("pwIntro").textContent = forced
+    ? "You're using a temporary password. Choose your own password (at least 8 characters) to continue."
+    : "Choose a password with at least 8 characters.";
+  $("pwErr").textContent = "";
+  ["pwCurrent", "pwNew", "pwNew2"].forEach(id => $(id).value = "");
+  setTimeout(() => (forced ? $("pwNew") : $("pwCurrent")).focus(), 50);
+}
+$("changePwBtn").onclick = () => { $("userMenu").open = false; showPasswordForm(false); };
+$("pwCancel").onclick = () => $("pwModal").classList.add("hidden");
+$("pwForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  if ($("pwNew").value !== $("pwNew2").value) { $("pwErr").textContent = "The two new passwords don't match"; return; }
+  const r = await (await rawFetch("/api/me/password", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ current: $("pwCurrent").value, next: $("pwNew").value }) })).json();
+  if (!r.ok) { $("pwErr").textContent = r.error; return; }
+  $("pwModal").classList.add("hidden");
+  toast("Password changed");
+  if (pwForced) { await loadConfig(); pollServer(); }
+});
 
 async function loadConfig() {
   try {
@@ -495,7 +648,21 @@ async function loadConfig() {
   b.textContent = cfg.apiConfigured ? `⚡ Automatic ready (${cfg.phoneNumberId})` : "✋ Manual mode";
   b.title = cfg.apiConfigured ? "WhatsApp Cloud API is set up" : "WhatsApp Cloud API not set up: automatic sending is off";
   b.classList.toggle("off", !cfg.apiConfigured);
-  $("logoutBtn").classList.toggle("hidden", !(cfg.authRequired && cfg.loggedIn));
+  // account menu and admin-only Users tab
+  const me = cfg.user;
+  const showMenu = Boolean(cfg.authRequired && cfg.loggedIn && me);
+  $("userMenu").classList.toggle("hidden", !showMenu);
+  if (me) {
+    $("meName").textContent = me.name || me.username;
+    $("meFull").textContent = `${me.name || me.username} (${me.username})`;
+    $("meRole").textContent = me.role === "admin" ? "Admin" : "User";
+    $("meAvatar").textContent = (me.name || me.username).trim().charAt(0).toUpperCase();
+  }
+  $("changePwBtn").classList.toggle("hidden", !cfg.accounts);
+  const isAdmin = Boolean(me && me.role === "admin" && cfg.accounts && cfg.authRequired);
+  $("usersTab").classList.toggle("hidden", !isAdmin);
+  if (!isAdmin && !$("viewUsers").classList.contains("hidden")) showView("send");
+  if (me && me.mustChange) showPasswordForm(true);
   if (cfg.authMisconfigured) showLogin("This deployment has no APP_PASSWORD yet. Set it in Vercel → Settings → Environment Variables, then redeploy.");
   else if (cfg.authRequired && !cfg.loggedIn) showLogin();
   renderPlatformHints();
@@ -1012,7 +1179,7 @@ function renderCampaigns(st) {
     return `
     <div class="srv">
       <div class="head"><b>${esc(c.name)}</b><div class="stats">${campaignState(c)}</div></div>
-      <div class="stats">${c.contactsCount} contacts · ${what}${att} · ${schedText(c.schedule)} · gap ${c.interval.min}–${c.interval.max}s${c.interval.batchSize ? `, pause ${c.interval.batchPause}s every ${c.interval.batchSize}` : ""}</div>
+      <div class="stats">${c.contactsCount} contacts · ${what}${att} · ${schedText(c.schedule)}${c.createdBy && c.createdBy !== "local" ? ` · by ${esc(c.createdBy)}` : ""} · gap ${c.interval.min}–${c.interval.max}s${c.interval.batchSize ? `, pause ${c.interval.batchPause}s every ${c.interval.batchSize}` : ""}</div>
       ${c.sampleText ? `<div class="stats" style="margin-top:2px">“${esc(c.sampleText.slice(0, 90))}${c.sampleText.length > 90 ? "…" : ""}”</div>` : ""}
       <div class="row" style="margin-top:8px">
         ${runButtons}
@@ -1114,10 +1281,75 @@ function toast(text) {
 function showView(v) {
   $("viewSend").classList.toggle("hidden", v !== "send");
   $("viewCampaigns").classList.toggle("hidden", v !== "campaigns");
+  $("viewUsers").classList.toggle("hidden", v !== "users");
   [...$("viewNav").children].forEach(b => b.classList.toggle("active", b.dataset.view === v));
-  try { localStorage.setItem("wa_view", v); } catch {}
+  try { localStorage.setItem("wa_view", v === "users" ? "send" : v); } catch {}
   if (v === "campaigns") pollServer();
+  if (v === "users") loadUsers();
 }
+
+// ---------- Users (admins) ----------
+const ago = (iso) => {
+  if (!iso) return "never";
+  const s = (Date.now() - Date.parse(iso)) / 1000;
+  if (s < 60) return "just now";
+  if (s < 3600) return Math.round(s / 60) + " min ago";
+  if (s < 86400) return Math.round(s / 3600) + " h ago";
+  return new Date(iso).toLocaleDateString();
+};
+function showTemp(username, temp, what) {
+  const box = $("tempBox");
+  box.classList.remove("hidden");
+  box.innerHTML = `${what} <b>${esc(username)}</b>. Give them this one-time password (shown only now):
+    <div class="row" style="margin-top:8px"><code id="tempPw">${esc(temp)}</code><button id="copyTemp">📋 Copy</button></div>
+    <div class="hint">They log in with it and then choose their own password.</div>`;
+  $("copyTemp").onclick = async () => {
+    try { await navigator.clipboard.writeText(temp); $("copyTemp").textContent = "Copied ✓"; } catch { alert("Select the password and copy it"); }
+  };
+  box.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+function renderUsers(list) {
+  const me = cfg.user?.username;
+  $("usersBody").innerHTML = list.map(u => `
+    <tr>
+      <td><b>${esc(u.name)}</b><span class="you">${u.username === me ? "(you)" : ""}</span><br><span class="hint" style="margin:0">${esc(u.username)}${u.mustChange ? " · must set a new password" : ""}</span></td>
+      <td><span class="role ${u.role}">${u.role === "admin" ? "Admin" : "User"}</span></td>
+      <td>${ago(u.lastLoginAt)}</td>
+      <td>${u.createdAt ? new Date(u.createdAt).toLocaleDateString() : ""}${u.createdBy && u.createdBy !== "setup" ? ` <span class="hint" style="margin:0">by ${esc(u.createdBy)}</span>` : ""}</td>
+      <td><div class="row" style="flex-wrap:nowrap">
+        <button data-uact="reset" data-u="${esc(u.username)}">Reset password</button>
+        <button data-uact="role" data-u="${esc(u.username)}" data-role="${u.role === "admin" ? "user" : "admin"}">${u.role === "admin" ? "Make user" : "Make admin"}</button>
+        <button data-uact="delete" data-u="${esc(u.username)}" class="danger" ${u.username === me ? "disabled" : ""}>Delete</button>
+      </div></td>
+    </tr>`).join("") || `<tr><td colspan="5" class="hint">No users yet.</td></tr>`;
+}
+async function loadUsers() {
+  const r = await api("/api/users");
+  if (r.ok) renderUsers(r.users); else $("usersBody").innerHTML = `<tr><td colspan="5" class="st-failed">${esc(r.error)}</td></tr>`;
+}
+$("addUserBtn").onclick = async () => {
+  const username = $("newUser").value.trim().toLowerCase();
+  if (!username) { $("newUser").focus(); return; }
+  const r = await api("/api/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username, name: $("newName").value.trim(), role: $("newRole").value }) });
+  if (!r.ok) return alert(r.error);
+  $("newUser").value = ""; $("newName").value = "";
+  renderUsers(r.users);
+  showTemp(username, r.tempPassword, "Added");
+};
+$("usersBody").addEventListener("click", async (e) => {
+  const b = e.target.closest("button[data-uact]"); if (!b) return;
+  const u = b.dataset.u, act = b.dataset.uact;
+  if (act === "reset" && !confirm(`Reset the password of ${u}? Their current password stops working and they're logged out.`)) return;
+  if (act === "delete" && !confirm(`Delete the user ${u}? They won't be able to log in any more.`)) return;
+  const r = await api(`/api/users/${encodeURIComponent(u)}/${act}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ role: b.dataset.role }) });
+  if (!r.ok) return alert(r.error);
+  renderUsers(r.users);
+  if (act === "reset") showTemp(u, r.tempPassword, "New password for");
+  else toast(act === "delete" ? `Deleted ${u}` : `${u} is now ${b.dataset.role === "admin" ? "an admin" : "a user"}`);
+});
+$("newUser").addEventListener("keydown", (e) => { if (e.key === "Enter") $("addUserBtn").click(); });
+// close the account menu when clicking elsewhere
+document.addEventListener("click", (e) => { if (!e.target.closest("#userMenu")) $("userMenu").open = false; });
 $("viewNav").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) showView(b.dataset.view); });
 $("newCampaign").onclick = () => { showView("send"); $("campName").scrollIntoView({ behavior: "smooth", block: "center" }); setTimeout(() => $("campName").focus(), 400); };
 try { if (localStorage.getItem("wa_view") === "campaigns") showView("campaigns"); } catch {}

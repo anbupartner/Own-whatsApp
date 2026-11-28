@@ -119,7 +119,7 @@ In the Message card, pick a file or paste a public `https://` link to one.
 Vercel runs the page as static files and the API as one serverless function (`api/[...path].js`, which receives every `/api/*` request).
 Because Vercel has no always-on server and no lasting disk, three things are different:
 
-- **Password login.** The site is public, so it does nothing until you set `APP_PASSWORD`.
+- **Login.** The site is public, so it does nothing until you set `APP_PASSWORD` (see **Users and login**).
 - **Database.** Campaigns live in a database: Vercel's **Neon Postgres** or **Upstash Redis** (free plans are enough).
 - **Cron.** Vercel calls `/api/cron` to start scheduled runs. One call can send for about 4½ minutes
   (`maxDuration` 300 s in `vercel.json`); a longer run pauses and continues on the next call.
@@ -136,7 +136,7 @@ Because Vercel has no always-on server and no lasting disk, three things are dif
 
    | Name | Value |
    |---|---|
-   | `APP_PASSWORD` | the password for logging in to the page |
+   | `APP_PASSWORD` | the first admin's password, and the admin recovery password (see **Users and login**) |
    | `WHATSAPP_TOKEN` | your Cloud API access token |
    | `WHATSAPP_PHONE_NUMBER_ID` | your phone number ID |
    | `CRON_SECRET` | a long random string; Vercel sends it with every cron call |
@@ -159,6 +159,24 @@ Because Vercel has no always-on server and no lasting disk, three things are dif
 ### Other limits on Vercel
 - Uploaded attachments can be at most 4.4 MB (Vercel's request size limit). For bigger documents, paste a public `https://` link instead.
 - The page checks the campaigns every 5 seconds while it is open and visible; each check is one function call.
+
+## Users and login
+
+Everyone logs in with a **username and password**. Accounts are kept in the database (Neon or Upstash), with passwords stored only as salted scrypt hashes.
+
+- **First admin:** log in with username `admin` and the `APP_PASSWORD` from Vercel. This creates the admin account.
+  (Use `APP_USERNAME` to choose a different admin username.)
+- **Adding people:** admins open the **Users** tab, enter a username, an optional full name and a role (User or Admin), and click **Add user**.
+  A one-time password is shown once; give it to the person. At first login they must choose their own password.
+- **Roles:** users can send and manage campaigns. Admins can also add and delete users, change roles and reset passwords.
+  There is always at least one admin, and nobody can delete their own account.
+- **Forgot password:** the login screen tells people to ask their admin. The admin clicks **Reset password** on that user,
+  which signs them out everywhere and shows a new one-time password.
+- **Admin locked out:** log in with the admin username and `APP_PASSWORD`. This recovery login then asks for a new password.
+- **Change password:** from the account menu (top right). Changing a password signs out that account's other sessions.
+- **Too many wrong tries:** 5 wrong passwords lock that username for 10 minutes (an admin reset unlocks it).
+- Sessions last 30 days. Without a database there is only one login: `admin` + `APP_PASSWORD`.
+- Locally without `APP_PASSWORD` there is no login at all (the server only listens on 127.0.0.1).
 
 ## Notes
 - Only message people who have agreed to receive messages from you. Accounts that send unwanted bulk messages get reported and banned.
