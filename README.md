@@ -219,6 +219,13 @@ Everyone logs in with a **username and password**. Accounts are kept in the data
 - Sessions last 30 days. Without a database there is only one login: `admin` + `APP_PASSWORD`.
 - Locally without `APP_PASSWORD` there is no login at all (the server only listens on 127.0.0.1).
 
+## Many users at once (load test)
+Tested with 10 users who each started 2 campaigns at the same moment: 20 campaigns × 50 contacts. The test used a database with 30 ms delay per query, like Neon, plus a fake WhatsApp API and a webhook flood of delivered and read updates.
+- Result: all 1,000 messages sent, none twice, none missed; delivered/read counts exact for every campaign.
+- List changes (campaigns, users, reset requests, do-not-contact) are single atomic database steps, so people saving at the same moment can't overwrite each other.
+- Typical response times: Campaigns page about 0.15 s, login about 0.25 s, a webhook call with 25 messages about 0.8 s.
+- One server sends about 6–7 messages a second in total across all campaigns. With normal gaps (5 s or more per campaign), that covers about 30 campaigns sending side by side.
+
 ## Notes
 - Only message people who have agreed to receive messages from you. Accounts that send unwanted bulk messages get reported and banned.
 - With the test number, Meta only lets you send to up to 5 recipient numbers that you have verified.
