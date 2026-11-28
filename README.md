@@ -71,7 +71,7 @@ Each campaign has its own card showing its status, next run, live progress and a
 
 | Button | What it does |
 |---|---|
-| **Start now** | Sends the campaign to all its contacts now. If another campaign is sending, it is queued and starts right after. |
+| **Start now** | Sends the campaign to all its contacts now. It runs alongside any other campaign that is sending. |
 | **Stop** | Stops sending but keeps its place (for example "Stopped at 20/50"). |
 | **Resume sending** | Continues a stopped run with the next contact. Nobody gets the message twice. |
 | **Cancel** | Ends the run: contacts not reached yet don't get it. Also cancels a queued Start now. |
@@ -91,8 +91,8 @@ While a run is stopped, the campaign's scheduled runs are skipped (and noted in 
   (`campaigns.json`, `c_<id>.json`, `m_<id>.json`, `r_<id>.json`).
 - The browser itself keeps nothing; you can open the site on another device and see the same campaigns.
 
-- **One at a time:** only one campaign sends at a time. If several are due together, they go one after another,
-  earliest first. **Run now** on a campaign while another is sending queues it to start next.
+- **Side by side:** campaigns that are due together (or started with **Start now**) send at the same time, each at its own pace,
+  with at least 3 seconds between any two messages from your number (`MIN_SEND_GAP_SECONDS`).
 - **One-time campaigns** are marked **Finished** after they send. To send one again, use **Run now** or save a new campaign.
 - You can close the page. Locally, the server (`npm start`) has to keep running and the computer must stay awake.
   On Vercel, runs are started by a cron call; see **Deploy on Vercel**.

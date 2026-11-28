@@ -1549,7 +1549,7 @@ function campaignState(c) {
     const p = c.progress;
     return `<span class="st-sending">Sending ${p.done}/${p.total} (sent ${p.sent}, failed ${p.failed})${p.waitingForCron ? " · paused at the time limit, continues on the next cron call" : p.waitSeconds ? ` · ${esc(p.waitLabel || "")} ${p.waitSeconds}s` : ""}</span>`;
   }
-  if (c.queued) return `<span class="st-sending">Queued: starts when the campaign that is sending now finishes</span>`;
+  if (c.queued) return `<span class="st-sending">Starting… (runs alongside the other campaigns)</span>`;
   if (c.finished) return `<span class="st-skipped">Finished</span>`;
   if (c.enabled && c.nextRunAt) return `<span class="st-sent">Active</span> · next run ${new Date(c.nextRunAt).toLocaleString()}`;
   return `<span class="st-skipped">Paused</span>`;
