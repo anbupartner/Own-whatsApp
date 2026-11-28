@@ -720,6 +720,25 @@ This is a quick update from our team. Reply STOP if you don't want these message
           </div>
           <div id="testResult" class="conn hidden"></div>
         </div>
+
+        <div class="test-box" id="dtBox">
+          <h3 class="sec">Delivered &amp; read tracking</h3>
+          <div id="dtStatus" class="conn info" style="margin-top:0">Loading…</div>
+          <label for="dtUrl">1. Callback URL</label>
+          <div class="row"><input id="dtUrl" class="grow" readonly /><button type="button" data-copy="dtUrl">📋 Copy</button></div>
+          <label for="dtToken">2. Verify token</label>
+          <div class="row"><input id="dtToken" class="grow" readonly /><button type="button" data-copy="dtToken">📋 Copy</button></div>
+          <label for="dtSecret">3. App Secret <span class="hint" id="dtSecretHint" style="font-weight:400"></span></label>
+          <div class="row">
+            <div class="pw-wrap grow">
+              <input id="dtSecret" type="password" placeholder="Meta app → App settings → Basic → App secret" autocomplete="off" spellcheck="false" />
+              <button type="button" class="pw-eye" data-for="dtSecret" aria-label="Show secret">👁</button>
+            </div>
+            <button type="button" class="primary" id="dtSaveBtn">Save</button>
+          </div>
+          <div class="hint">In Meta: your app → <b>WhatsApp → Configuration → Webhook → Edit</b>: paste 1 and 2, <b>Verify and save</b>, then under <b>Webhook fields</b> subscribe to <b>messages</b>. Paste the App Secret here so the app can check that updates really come from Meta.</div>
+          <div class="st-failed" id="dtErr" style="font-size:13px;margin-top:6px"></div>
+        </div>
       </section>
 
       <!-- Guide -->
@@ -813,6 +832,20 @@ This is a quick update from our team. Reply STOP if you don't want these message
         </details>
 
         <details class="step">
+          <summary><span class="n">8</span>Turn on delivered &amp; read tracking</summary>
+          <div class="body">
+            <ol>
+              <li>In <b>Delivered &amp; read tracking</b> on this page, copy the <b>Callback URL</b> and <b>Verify token</b>.</li>
+              <li>In your Meta app open <b>WhatsApp → Configuration</b>, click <b>Edit</b> next to Webhook, paste both, and click <b>Verify and save</b>.</li>
+              <li>Under <b>Webhook fields</b> click <b>Manage</b> and subscribe to <b>messages</b>.</li>
+              <li>In <b>App settings → Basic</b>, click <b>Show</b> next to App secret, copy it, paste it here and click <b>Save</b>.</li>
+              <li>Send a test campaign. Each campaign's <b>📊 Performance</b> now shows <b>Delivered</b> and <b>Read</b>, and exports show each contact's status.</li>
+            </ol>
+            <p class="hint">Bonus: when someone replies <b>STOP</b> (or UNSUBSCRIBE / OPT OUT), they're added to the do-not-contact list automatically. Read receipts only count when the person has them switched on in WhatsApp.</p>
+          </div>
+        </details>
+
+        <details class="step">
           <summary><span class="n">!</span>Common errors and fixes</summary>
           <div class="body">
             <table class="mini errs">
@@ -850,7 +883,7 @@ This is a quick update from our team. Reply STOP if you don't want these message
       <button type="button" id="kpiClose" aria-label="Close">✕</button>
     </div>
     <div id="kpiBody"></div>
-    <p class="hint" style="margin-top:14px">“Sent” means WhatsApp accepted the message. Delivered and read receipts need Meta webhooks, which aren't set up.</p>
+    <p class="hint" style="margin-top:14px" id="kpiFoot"></p>
   </form>
 </div>
 
@@ -1737,7 +1770,7 @@ async function exportCampaignResults(id) {
   const r = await api(`/api/campaigns/${id}/results`);
   if (!r.ok) return alert(r.error);
   const q = (s) => `"${String(s ?? "").replace(/"/g, '""')}"`;
-  const lines = [["phone", "name", "status", "note"].join(","), ...r.results.map(x => [x.phone, x.name, x.status, x.note].map(q).join(","))];
+  const lines = [["phone", "name", "status", "delivery", "note"].join(","), ...r.results.map(x => [x.phone, x.name, x.status, x.delivery || "", x.deliveryError || x.note].map(q).join(","))];
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/csv" }));
   a.download = `${r.name.replace(/[^\w-]+/g, "_")}-results-${new Date().toISOString().slice(0, 10)}.csv`;
@@ -1777,7 +1810,7 @@ function showView(v) {
   try { localStorage.setItem("wa_view", v === "users" ? "send" : v); } catch {}
   if (v === "campaigns") pollServer();
   if (v === "users") loadUsers();
-  if (v === "setup") { renderSetupChecklist(); loadWaSettings(); }
+  if (v === "setup") { renderSetupChecklist(); loadWaSettings(); loadWebhook(); }
 }
 
 // ---------- Users (admins) ----------
@@ -1952,6 +1985,7 @@ function renderSetupChecklist() {
     { ok: Boolean(cfg.storage && cfg.storageOk !== false), title: "Database connected", note: cfg.storage ? `Using ${cfg.storage === "postgres" ? "Neon Postgres" : cfg.storage === "redis" ? "Upstash Redis" : "local files"}` : "Connect Neon or Upstash in Vercel → Storage" },
     { ok: !cfg.authMisconfigured, title: "Login password set", note: cfg.authRequired ? "APP_PASSWORD is set" : "Local mode: no login" },
     ...(cfg.platform === "vercel" ? [{ ok: Boolean(cfg.cronConfigured), title: "Cron secret set", note: cfg.cronConfigured ? "CRON_SECRET is set (scheduled campaigns)" : "Add CRON_SECRET in Vercel for scheduled campaigns" }] : []),
+    { ok: Boolean(cfg.deliveryTracking), title: "Delivered & read tracking", note: cfg.deliveryTracking ? "Webhook verify token and App Secret set" : "Optional: see step 8 and the box below" },
     { ok: Boolean(cfg.apiConfigured), title: "WhatsApp Cloud API", note: cfg.apiConfigured ? `Token and Phone number ID set ${cfg.whatsappSource === "env" ? "in Vercel" : "in the app"} (ID …${String(cfg.phoneNumberId || "").replace("…", "")})` : "Enter the Phone number ID and access token below (steps 1–4)" },
   ];
   $("setupChecklist").innerHTML = items.map(i => `
@@ -1979,6 +2013,42 @@ function metaTip(code, message) {
   return META_TIPS[c] ? `<br><b>Fix:</b> ${esc(META_TIPS[c])}` : "";
 }
 function showConn(el, kind, html) { const b = $(el); b.className = "conn " + kind; b.innerHTML = html; }
+
+// ---- Delivered & read tracking (webhook) ----
+async function loadWebhook() {
+  const r = await api("/api/setup/webhook");
+  if (!r.ok) { $("dtBox").classList.add("hidden"); return; }
+  renderWebhook(r.webhook);
+}
+function renderWebhook(w) {
+  $("dtUrl").value = location.origin + w.path;
+  $("dtToken").value = w.verifyToken || "";
+  $("dtSecret").value = "";
+  $("dtSecret").disabled = w.secretFromEnv;
+  $("dtSaveBtn").disabled = w.secretFromEnv;
+  $("dtSecretHint").textContent = w.secretFromEnv ? "(set in Vercel)" : w.secretSet ? "(saved)" : "";
+  $("dtSecret").placeholder = w.secretSet ? "Saved: paste a new one to replace it" : "Meta app → App settings → Basic → App secret";
+  const box = $("dtStatus");
+  if (w.lastAt) { box.className = "conn ok"; box.textContent = `✅ Working: last update from WhatsApp ${ago(w.lastAt)}.`; }
+  else if (w.secretSet) { box.className = "conn info"; box.textContent = "Waiting for the first update from WhatsApp. Finish the Meta steps, then send a test campaign."; }
+  else { box.className = "conn info"; box.textContent = "Off. Follow 1–3 below to see Delivered and Read for each campaign."; }
+}
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-copy]"); if (!b) return;
+  try { await navigator.clipboard.writeText($(b.dataset.copy).value); b.textContent = "Copied ✓"; setTimeout(() => b.textContent = "📋 Copy", 1500); }
+  catch { $(b.dataset.copy).select(); }
+});
+$("dtSaveBtn").onclick = async () => {
+  $("dtErr").textContent = "";
+  const appSecret = $("dtSecret").value.trim();
+  if (!appSecret) { $("dtSecret").focus(); return; }
+  const r = await api("/api/setup/webhook", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ appSecret }) });
+  if (!r.ok) { $("dtErr").textContent = r.error; return; }
+  renderWebhook(r.webhook);
+  toast("App Secret saved");
+  await loadConfig();
+};
+$("dtSecret").addEventListener("keydown", (e) => { if (e.key === "Enter") $("dtSaveBtn").click(); });
 
 // ---- WhatsApp settings saved in the app ----
 async function loadWaSettings() {
@@ -2082,9 +2152,14 @@ function segBar(s, total) {
   const legend = parts.map(([l, n, c]) => `<span><i class="${c}"></i>${l} ${n}</span>`).join("");
   return `<div class="seg" role="img" aria-label="${parts.map(p => `${p[0]} ${p[1]}`).join(", ")}">${bar}</div><div class="legend">${legend}</div>`;
 }
-function failuresHtml(list) {
+// Delivered / Read tiles (only when the run has tracking data)
+const dTiles = (d, sent) => !d ? "" :
+  tile("Delivered", d.delivered, `${pct(d.delivered, sent)}% of sent`, "c-ok") +
+  tile("Read", d.read, `${pct(d.read, sent)}% of sent`) +
+  (d.notDelivered ? tile("Not delivered", d.notDelivered, "after WhatsApp accepted it", "c-err") : "");
+function failuresHtml(list, title = "Why messages failed") {
   if (!list || !list.length) return "";
-  return `<table class="mini errs" style="width:100%;margin-top:10px"><tr><td><b>Why messages failed</b></td><td style="width:70px"><b>Count</b></td></tr>${
+  return `<table class="mini errs" style="width:100%;margin-top:10px"><tr><td><b>${title}</b></td><td style="width:70px"><b>Count</b></td></tr>${
     list.map(f => `<tr><td>${esc(f.reason)}${metaTip(null, f.reason)}</td><td>${f.count}</td></tr>`).join("")}</table>`;
 }
 function renderKpi(st) {
@@ -2099,12 +2174,14 @@ function renderKpi(st) {
         ${tile("Progress", `${cur.done}/${cur.total}`, `${pct(cur.done, cur.total)}% done`)}
         ${tile("Sent", cur.sent, `${pct(cur.sent, Math.max(1, cur.sent + cur.failed))}% of attempts`, "c-ok")}
         ${tile("Failed", cur.failed, "", "c-err")}
+        ${dTiles(cur.delivery, cur.sent)}
         ${tile("Speed", `${cur.perMinute}`, "messages / minute")}
         ${tile("Time left", cur.state === "stopped" ? "Paused" : `≈ ${fmtDur(cur.etaSeconds)}`, `${cur.remaining} to go`)}
         ${tile("Started", new Date(cur.startedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }), new Date(cur.startedAt).toLocaleDateString())}
       </div>
       ${segBar({ ...cur, left: cur.remaining }, cur.total)}
       ${failuresHtml(cur.failures)}
+      ${cur.delivery ? failuresHtml(cur.delivery.reasons, "Why messages weren't delivered") : ""}
     </section>`;
   }
   const last = st.last;
@@ -2117,6 +2194,7 @@ function renderKpi(st) {
         ${tile("Success rate", `${pct(last.sent, attempted)}%`, `${last.sent} of ${attempted} attempts`)}
         ${tile("Sent", last.sent, `of ${last.total} contacts`, "c-ok")}
         ${tile("Failed", last.failed, "", "c-err")}
+        ${dTiles(last.delivery, last.sent)}
         ${tile("Skipped / not sent", last.skipped + last.notSent, last.skipped ? `${last.skipped} do not contact` : "")}
         ${tile("Duration", fmtDur(dur), dur && attempted ? `${(attempted / (dur / 60)).toFixed(1)} / min` : "")}
         ${tile("Finished", last.finishedAt ? new Date(last.finishedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—", last.finishedAt ? new Date(last.finishedAt).toLocaleDateString() : "")}
@@ -2124,6 +2202,7 @@ function renderKpi(st) {
       ${segBar(last, last.total)}
       ${last.note ? `<p class="st-failed" style="font-size:13px">${esc(last.note)}</p>` : ""}
       ${failuresHtml(st.lastFailures)}
+      ${last.delivery ? failuresHtml(last.delivery.reasons, "Why messages weren't delivered") : ""}
       <div class="row" style="margin-top:10px"><button type="button" id="kpiExport">⬇ Export last run (CSV)</button></div>
     </section>`;
   }
@@ -2137,17 +2216,20 @@ function renderKpi(st) {
         ${tile("Skipped / not sent", t.skipped + t.notSent)}
       </div>
       <div class="table-wrap" style="max-height:240px;margin-top:0"><table>
-        <thead><tr><th>Finished</th><th>How</th><th>Sent</th><th>Failed</th><th>Skipped / not sent</th><th>Success</th></tr></thead>
+        <thead><tr><th>Finished</th><th>How</th><th>Sent</th><th>Delivered</th><th>Read</th><th>Failed</th><th>Skipped / not sent</th><th>Success</th></tr></thead>
         <tbody>${st.runStats.map(s => { const sr = pct(s.sent, s.sent + s.failed); return `<tr>
           <td>${new Date(s.finishedAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" })}</td>
           <td>${s.trigger === "scheduled" ? "Scheduled" : "Start now"}${s.outcome !== "finished" ? ` · ${s.outcome}` : ""}</td>
-          <td>${s.sent}</td><td>${s.failed}</td><td>${s.skipped + s.notSent}</td>
+          <td>${s.sent}</td><td>${s.delivery ? s.delivery.delivered : "—"}</td><td>${s.delivery ? s.delivery.read : "—"}</td><td>${s.failed}</td><td>${s.skipped + s.notSent}</td>
           <td><span class="rate-bar" aria-hidden="true"><span style="width:${sr}%"></span></span>${sr}%</td></tr>`; }).join("")}</tbody>
       </table></div>
     </section>`;
   }
   if (!h) h = `<div class="empty" style="margin-top:12px"><span class="title">No runs yet</span>Numbers appear here once this campaign has sent (Start now, or its scheduled time).</div>`;
   $("kpiBody").innerHTML = h;
+  $("kpiFoot").textContent = cfg.deliveryTracking
+    ? "“Sent” = WhatsApp accepted the message. “Delivered” and “Read” come from WhatsApp's status updates; Read only counts people who have read receipts on. Runs from before tracking was on show —."
+    : "“Sent” = WhatsApp accepted the message. To also see Delivered and Read, an admin can turn on tracking on the Setup page (step 8).";
   const ex = $("kpiExport"); if (ex) ex.onclick = () => exportCampaignResults(st.id);
 }
 async function loadKpi() {

@@ -109,6 +109,20 @@ While a run is stopped, the campaign's scheduled runs are skipped (and noted in 
 - `data/` holds your contacts, so it is in `.gitignore`.
 - Sending the same people the same message again and again quickly gets the number reported. Only message people who asked to hear from you.
 
+## Delivered & read tracking
+
+WhatsApp reports delivered / read through a webhook. Turn it on in **Setup → Delivered & read tracking** (guide step 8):
+
+1. Copy the **Callback URL** (`https://<your-site>/api/webhook`) and the **Verify token** shown there.
+2. Meta app → **WhatsApp → Configuration → Webhook → Edit**: paste both, **Verify and save**; under **Webhook fields → Manage**, subscribe to **messages**.
+3. Meta app → **App settings → Basic → App secret → Show**: paste it in the Setup box and **Save** (stored encrypted).
+
+Every webhook call is checked with the App Secret (`X-Hub-Signature-256`); others are rejected. Each campaign message is linked
+to its run for 35 days, so **📊 Performance** shows **Delivered** and **Read** (with rates and "not delivered" reasons) and the CSV
+export has a per-contact `delivery` column. Repeated or out-of-order updates are counted once. Read only counts people with read
+receipts on. Replies of **STOP / UNSUBSCRIBE / OPT OUT** add the sender to the do-not-contact list automatically.
+`WEBHOOK_VERIFY_TOKEN` and `META_APP_SECRET` can be set as environment variables instead.
+
 ## Do-not-contact list
 
 People who replied STOP or asked not to be messaged go on one shared list, and are never messaged again by anyone.
