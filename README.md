@@ -77,6 +77,7 @@ Each campaign has its own card showing its status, next run, live progress and a
 | **Cancel** | Ends the run: contacts not reached yet don't get it. Also cancels a queued Start now. |
 | **Pause schedule** | No new scheduled runs. A run that is sending keeps going (use Stop for that). |
 | **Resume schedule** | Turns the schedule back on and works out the next run time. |
+| **⏱ Edit** | Change this campaign's sending speed (wait at least / at most, break every N, break length) and when it sends. Applies at once, also to a run that is sending (from its next message). |
 | **Export last run** | CSV with each contact's result (sent / failed and the reason). |
 | **Delete** | Removes the campaign. Stop or cancel a sending run first. |
 

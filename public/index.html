@@ -230,6 +230,7 @@
   .dnc-list { max-height: 300px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; margin-top: 8px; }
   .dnc-list table td { white-space: normal; }
   #dncModal form { max-width: 560px; }
+  #campEditModal form { max-width: 560px; }
   .tools { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 
   /* Save as campaign */
@@ -817,6 +818,48 @@ This is a quick update from our team. Reply STOP if you don't want these message
   <img src="/brand/mark.svg" alt="" width="18" height="18" />
   <span>NexGrowth Partner · Premium growth partner</span>
 </footer>
+
+<!-- Edit a campaign's speed and schedule -->
+<div id="campEditModal" class="login hidden">
+  <form id="campEditForm" class="card" novalidate>
+    <div class="row" style="align-items:flex-start">
+      <div class="grow">
+        <h2 style="margin:0">⏱ Edit <span id="ceName"></span></h2>
+        <p class="hint" style="margin-top:4px">Changes apply right away, also to a run that is sending now (from its next message).</p>
+      </div>
+      <button type="button" id="ceClose" aria-label="Close">✕</button>
+    </div>
+
+    <h3 class="sec" style="margin-top:8px">Sending speed</h3>
+    <div class="speed">
+      <div><label for="ceMin">Wait at least (sec)</label><input id="ceMin" type="number" min="1" max="3600" /></div>
+      <div><label for="ceMax">Wait at most (sec)</label><input id="ceMax" type="number" min="1" max="3600" /></div>
+      <div><label for="ceBatch">Break every (messages)</label><input id="ceBatch" type="number" min="0" max="10000" /></div>
+      <div><label for="cePause">Break length (sec)</label><input id="cePause" type="number" min="0" max="86400" /></div>
+    </div>
+    <div class="hint" id="ceRate"></div>
+
+    <h3 class="sec" style="margin-top:16px">When it sends</h3>
+    <div class="row">
+      <select id="ceType" style="width:auto">
+        <option value="once">Once at</option>
+        <option value="daily">Every day at</option>
+        <option value="hours">Every N hours</option>
+        <option value="minutes">Every N minutes</option>
+      </select>
+      <input id="ceAt" type="datetime-local" style="width:auto" />
+      <input id="ceTime" type="time" style="width:auto" />
+      <input id="ceEvery" type="number" min="1" style="width:90px" />
+    </div>
+    <div class="hint" id="ceSchedNote"></div>
+
+    <div class="st-failed" id="ceErr" style="min-height:18px;margin-top:10px;font-size:13px"></div>
+    <div class="row">
+      <button type="button" id="ceCancel">Cancel</button>
+      <button type="submit" class="primary grow" id="ceSave">Save changes</button>
+    </div>
+  </form>
+</div>
 
 <!-- Do-not-contact list -->
 <div id="dncModal" class="login hidden">
@@ -1591,7 +1634,8 @@ function renderCampaigns(st) {
       <div class="row" style="margin-top:8px">
         ${runButtons}
         ${scheduleButton}
-        <button data-act="load" data-id="${id}" ${st.apiConfigured ? "" : `class="primary"`}>Load into page</button>
+        <button data-act="edit" data-id="${id}">⏱ Edit</button>
+        <button data-act="load" data-id="${id}"${st.apiConfigured ? "" : `class="primary"`}>Load into page</button>
         <button data-act="export" data-id="${id}" ${c.lastResultsCount ? "" : "disabled"}>Export last run</button>
         <button data-act="delete" data-id="${id}" class="danger" ${c.running ? "disabled title=\"Stop or cancel the run first\"" : ""}>Delete</button>
       </div>
@@ -1613,6 +1657,7 @@ $("campList").addEventListener("click", async (e) => {
   const c = campaignsById[id];
   if (act === "export") return exportCampaignResults(id);
   if (act === "load") return loadCampaignIntoPage(id);
+  if (act === "edit") return openCampEdit(id);
   if (act === "delete" && !confirm(`Delete the campaign “${c?.name}”?`)) return;
   if (act === "run-now" && !confirm(`Send “${c?.name}” to its ${c?.contactsCount} contacts now?`)) return;
   if (act === "cancel" && !confirm(c?.held || c?.running
@@ -1977,6 +2022,65 @@ $("testSendBtn").onclick = async () => {
 };
 $("testTo").addEventListener("keydown", (e) => { if (e.key === "Enter") $("testSendBtn").click(); });
 $("modeTabs").addEventListener("click", () => setTimeout(updateModeUi, 0));
+
+// ---------- Edit a campaign's speed and schedule ----------
+let ceId = null, ceScheduleTouched = false;
+function ceShowFields() {
+  const t = $("ceType").value;
+  $("ceAt").classList.toggle("hidden", t !== "once");
+  $("ceTime").classList.toggle("hidden", t !== "daily");
+  $("ceEvery").classList.toggle("hidden", t !== "hours" && t !== "minutes");
+}
+// Rough messages-per-hour for the chosen speed
+function ceRate() {
+  const a = Math.max(1, +$("ceMin").value || 1), b = Math.max(a, +$("ceMax").value || a);
+  const n = +$("ceBatch").value || 0, p = +$("cePause").value || 0;
+  const avg = (a + b) / 2, per = n && p ? (n * avg + p) / n : avg;
+  $("ceRate").textContent = `≈ ${Math.round(3600 / per)} messages an hour (about one every ${Math.round(per)} s on average).`;
+}
+function openCampEdit(id) {
+  const c = campaignsById[id]; if (!c) return;
+  ceId = id; ceScheduleTouched = false;
+  $("ceName").textContent = `“${c.name}”`;
+  $("ceMin").value = c.interval.min; $("ceMax").value = c.interval.max;
+  $("ceBatch").value = c.interval.batchSize || 0; $("cePause").value = c.interval.batchPause || 0;
+  $("ceType").value = c.schedule.type;
+  $("ceTime").value = c.schedule.time || "09:00";
+  $("ceEvery").value = c.schedule.every || 6;
+  $("ceAt").value = localInputValue(c.schedule.at && Date.parse(c.schedule.at) > Date.now() ? new Date(c.schedule.at) : new Date(Date.now() + 15 * 60000));
+  $("ceSchedNote").textContent = c.finished && c.schedule.type === "once" ? "This one-time campaign has already sent. Pick a new time to send it again." : "";
+  $("ceErr").textContent = "";
+  ceShowFields(); ceRate();
+  $("campEditModal").classList.remove("hidden");
+  setTimeout(() => $("ceMin").focus(), 50);
+}
+["ceMin", "ceMax", "ceBatch", "cePause"].forEach(i => $(i).addEventListener("input", ceRate));
+["ceType", "ceAt", "ceTime", "ceEvery"].forEach(i => $(i).addEventListener("input", () => { ceScheduleTouched = true; ceShowFields(); }));
+$("ceType").addEventListener("change", () => { ceScheduleTouched = true; ceShowFields(); });
+const closeCampEdit = () => $("campEditModal").classList.add("hidden");
+$("ceClose").onclick = closeCampEdit; $("ceCancel").onclick = closeCampEdit;
+$("campEditModal").addEventListener("click", (e) => { if (e.target.id === "campEditModal") closeCampEdit(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeCampEdit(); });
+$("campEditForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  $("ceErr").textContent = "";
+  const body = { interval: { min: $("ceMin").value, max: $("ceMax").value, batchSize: $("ceBatch").value || 0, batchPause: $("cePause").value || 0 } };
+  // only send the schedule if it was changed, so editing the speed of a finished one-time campaign works
+  if (ceScheduleTouched) {
+    const type = $("ceType").value;
+    const at = type === "once" ? new Date($("ceAt").value) : null;
+    if (type === "once" && !(at && at.getTime() > Date.now())) { $("ceErr").textContent = "Pick a send time in the future."; return; }
+    body.schedule = { type, at: at ? at.toISOString() : null, time: $("ceTime").value, every: Number($("ceEvery").value), tz: Intl.DateTimeFormat().resolvedOptions().timeZone };
+  }
+  $("ceSave").disabled = true;
+  try {
+    const r = await api(`/api/campaigns/${ceId}/update`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (!r.ok) { $("ceErr").textContent = r.error; return; }
+    closeCampEdit();
+    renderCampaigns(r.status);
+    toast("Campaign updated");
+  } finally { $("ceSave").disabled = false; }
+});
 
 // ---------- Do-not-contact list ----------
 let dncEnabled = false;
