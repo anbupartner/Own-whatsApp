@@ -56,6 +56,34 @@
   .pw-wrap input { padding-right: 42px; }
   .pw-eye { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); border: none; background: none; padding: 4px 8px; font-size: 15px; opacity: .6; }
   .pw-eye:hover { opacity: 1; }
+  .setup-grid { display: grid; grid-template-columns: minmax(0, 360px) minmax(0, 1fr); gap: 16px; align-items: start; }
+  @media (max-width: 900px) { .setup-grid { grid-template-columns: minmax(0, 1fr); } }
+  h3.sec { font-size: 14px; margin: 0 0 10px; font-family: Poppins, system-ui, sans-serif; font-weight: 600; }
+  .checklist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .checklist li { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; }
+  .checklist .ic { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; flex: none; }
+  .checklist .ic.ok { background: var(--ok-soft); color: var(--ok); }
+  .checklist .ic.no { background: var(--warn-soft); color: var(--warn); }
+  .checklist small { display: block; color: var(--muted); }
+  .conn { margin-top: 12px; padding: 10px 12px; border-radius: 10px; font-size: 13px; overflow-wrap: anywhere; }
+  .conn.ok { background: var(--ok-soft); color: var(--ok); }
+  .conn.bad { background: var(--err-soft); color: var(--err); }
+  .conn.info { background: var(--card-2); color: var(--muted); }
+  .test-box { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+  .guide-card details.step { border: 1px solid var(--line); border-radius: 10px; margin-bottom: 8px; background: var(--card); }
+  .guide-card details.step > summary { list-style: none; cursor: pointer; padding: 10px 12px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+  .guide-card details.step > summary::-webkit-details-marker { display: none; }
+  .guide-card details.step > summary::after { content: "▸"; margin-left: auto; color: var(--muted); transition: transform .15s; }
+  .guide-card details.step[open] > summary::after { transform: rotate(90deg); }
+  .guide-card .n { width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; font-size: 12px; flex: none; }
+  .guide-card .body { padding: 0 14px 12px 46px; font-size: 14px; }
+  .guide-card .body ol { margin: 0; padding-left: 18px; }
+  .guide-card .body li { margin-bottom: 6px; }
+  .guide-card a { color: var(--accent-strong); font-weight: 600; }
+  table.mini { border-collapse: collapse; margin: 6px 0; font-size: 13px; }
+  table.mini td { border: 1px solid var(--line); padding: 6px 8px; white-space: normal; vertical-align: top; }
+  table.mini.errs td:first-child { width: 42%; }
+  @media (max-width: 520px) { .guide-card .body { padding-left: 14px; } }
   .seg { display: flex; gap: 4px; background: var(--bg); padding: 4px; border-radius: 10px; }
   .seg button { flex: 1; border: none; background: transparent; font-size: 13px; padding: 7px 8px; color: var(--muted); font-weight: 600; }
   .seg button.active { background: var(--card); color: var(--text); box-shadow: var(--shadow); }
@@ -352,6 +380,7 @@
     <nav class="views" id="viewNav">
       <button data-view="send" class="active">Send</button>
       <button data-view="campaigns">Campaigns<span class="count hidden" id="campCount"></span></button>
+      <button data-view="setup" class="hidden" id="setupTab">Setup<span class="badge-dot hidden" id="setupBadge" title="WhatsApp Cloud API not set up yet">!</span></button>
       <button data-view="users" class="hidden" id="usersTab">Users<span class="badge-dot hidden" id="reqBadge" title="Password reset requests waiting"></span></button>
     </nav>
     <div class="right">
@@ -500,7 +529,9 @@ This is a quick update from our team. Reply STOP if you don't want these message
 
       <!-- Automatic -->
       <div id="apiControls" class="hidden">
-        <div class="notice hidden" id="apiSetupNote">Automatic sending needs the WhatsApp Cloud API settings (<code>WHATSAPP_TOKEN</code> and <code>WHATSAPP_PHONE_NUMBER_ID</code>). Until then, use Manual.</div>
+        <div class="notice hidden" id="apiSetupNote">Automatic sending needs the WhatsApp Cloud API (<code>WHATSAPP_TOKEN</code> and <code>WHATSAPP_PHONE_NUMBER_ID</code>). Until then, use Manual.
+          <span id="setupLinkWrap"><br><button type="button" class="link" id="openSetupBtn">Open the setup guide →</button></span>
+          <span id="setupAskAdmin" class="hidden"><br>Ask your admin to set it up.</span></div>
         <div class="send-main">
           <button class="primary big" id="startBtn">▶ Start sending</button>
           <button class="danger" id="stopBtn" disabled>■ Stop</button>
@@ -607,6 +638,151 @@ This is a quick update from our team. Reply STOP if you don't want these message
         </table>
       </div>
     </section>
+  </div>
+
+  <!-- ================= SETUP VIEW (admins) ================= -->
+  <div id="viewSetup" class="hidden">
+    <div class="page-head">
+      <div>
+        <h2>WhatsApp Cloud API setup</h2>
+        <p>Automatic sending and scheduled campaigns use Meta's official WhatsApp Cloud API. Setting it up takes about 20 minutes and is free to start.</p>
+      </div>
+    </div>
+
+    <div class="setup-grid">
+      <!-- Status -->
+      <section class="card">
+        <h3 class="sec">Status</h3>
+        <ul class="checklist" id="setupChecklist"></ul>
+        <div class="row" style="margin-top:12px">
+          <button class="primary" id="checkConnBtn">🔌 Check connection</button>
+        </div>
+        <div id="connResult" class="conn hidden"></div>
+
+        <div class="test-box">
+          <h3 class="sec">Send a test message</h3>
+          <p class="hint" style="margin-top:0">Sends Meta's ready-made <b>hello_world</b> template. With Meta's test number, the "To" number must be one of the numbers you added in step 3.</p>
+          <div class="row">
+            <input id="testTo" class="grow" placeholder="Your WhatsApp number, e.g. +91 98765 43210" inputmode="tel" />
+            <button id="testSendBtn">📨 Send test</button>
+          </div>
+          <div id="testResult" class="conn hidden"></div>
+        </div>
+      </section>
+
+      <!-- Guide -->
+      <section class="card guide-card">
+        <h3 class="sec">Step-by-step guide</h3>
+
+        <details class="step" open>
+          <summary><span class="n">1</span>Create a Meta developer account</summary>
+          <div class="body">
+            <ol>
+              <li>Open <a href="https://developers.facebook.com/" target="_blank" rel="noopener">developers.facebook.com</a> and log in with your Facebook account.</li>
+              <li>Click <b>Get started</b> and follow the steps (confirm your phone number and email).</li>
+            </ol>
+          </div>
+        </details>
+
+        <details class="step">
+          <summary><span class="n">2</span>Create an app with WhatsApp</summary>
+          <div class="body">
+            <ol>
+              <li>Go to <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener">My Apps</a> → <b>Create app</b>.</li>
+              <li>Pick the use case <b>Connect with customers through WhatsApp</b> (in older screens: app type <b>Business</b>, then add the <b>WhatsApp</b> product).</li>
+              <li>Name it (for example <i>NexGrowth Sender</i>) and choose or create your <b>business portfolio</b>.</li>
+            </ol>
+          </div>
+        </details>
+
+        <details class="step">
+          <summary><span class="n">3</span>Copy the token and Phone number ID</summary>
+          <div class="body">
+            <ol>
+              <li>In your app, open <b>WhatsApp → API Setup</b>.</li>
+              <li>Meta gives you a free <b>test phone number</b> (shown under <b>From</b>). Copy its <b>Phone number ID</b> (a long number, not the phone number itself).</li>
+              <li>Click <b>Generate access token</b> and copy it (starts with <code>EAA…</code>). This one lasts <b>24 hours</b>; step 6 makes a permanent one.</li>
+              <li>Under <b>To</b>, add your own WhatsApp number and enter the code Meta sends you. The test number can only message up to 5 numbers added here.</li>
+              <li>Optional: click <b>Send message</b> on that page to check you receive "Hello World".</li>
+            </ol>
+          </div>
+        </details>
+
+        <details class="step">
+          <summary><span class="n">4</span>Add them to Vercel</summary>
+          <div class="body">
+            <ol>
+              <li>Vercel → your project → <b>Settings → Environment Variables</b> → <b>Add Environment Variable</b>, tick <b>Production</b>:
+                <table class="mini">
+                  <tr><td><code>WHATSAPP_TOKEN</code></td><td>the access token</td></tr>
+                  <tr><td><code>WHATSAPP_PHONE_NUMBER_ID</code></td><td>the Phone number ID</td></tr>
+                </table>
+              </li>
+              <li><b>Deployments</b> → <b>⋯</b> on the top deployment → <b>Redeploy</b> (new values only apply after a redeploy).</li>
+              <li>Reload this page. The status above turns green; click <b>Check connection</b>, then <b>Send test</b>.</li>
+            </ol>
+            <p class="hint">Running the app on your own computer instead? Put the same two lines in the <code>.env</code> file and restart <code>npm start</code>.</p>
+          </div>
+        </details>
+
+        <details class="step">
+          <summary><span class="n">5</span>Create your message templates</summary>
+          <div class="body">
+            <p>WhatsApp only lets businesses start a chat (or write after 24 hours of silence) with a <b>Meta-approved template</b>.</p>
+            <ol>
+              <li>Open <a href="https://business.facebook.com/wa/manage/message-templates/" target="_blank" rel="noopener">WhatsApp Manager → Message templates</a> → <b>Create template</b>.</li>
+              <li>Category: <b>Marketing</b> (offers, news) or <b>Utility</b> (updates about an order or service).</li>
+              <li>Write the text with numbered blanks, e.g. <i>Hi {{1}}, our {{2}} offer ends Sunday.</i> Add an image or document header if you want to attach one.</li>
+              <li>Submit. Approval usually takes minutes, sometimes up to a day.</li>
+              <li>In this app: <b>Send → Automatic</b>, Message type <b>Approved template</b>, enter the template name and language (e.g. <code>en_US</code> or <code>en</code>), and one value per line for {{1}}, {{2}}… such as <code>{name}</code> and <code>{services}</code>.</li>
+            </ol>
+          </div>
+        </details>
+
+        <details class="step">
+          <summary><span class="n">6</span>Make the token permanent</summary>
+          <div class="body">
+            <ol>
+              <li>Open <a href="https://business.facebook.com/settings/system-users" target="_blank" rel="noopener">Business settings → Users → System users</a> → <b>Add</b>, role <b>Admin</b>.</li>
+              <li><b>Assign assets</b>: your app (full control) and your WhatsApp account (full control).</li>
+              <li><b>Generate new token</b>: choose your app, expiry <b>Never</b>, and tick <code>whatsapp_business_messaging</code> and <code>whatsapp_business_management</code>.</li>
+              <li>Replace <code>WHATSAPP_TOKEN</code> in Vercel with this token and redeploy.</li>
+            </ol>
+          </div>
+        </details>
+
+        <details class="step">
+          <summary><span class="n">7</span>Use your own business number</summary>
+          <div class="body">
+            <ol>
+              <li>In <b>WhatsApp → API Setup</b> (or WhatsApp Manager → <b>Phone numbers</b>) click <b>Add phone number</b>, enter your business name and the number, and verify it by SMS or call.</li>
+              <li>The number must <b>not</b> be in use on the normal WhatsApp or WhatsApp Business app at the same time. Use a new number, or delete that WhatsApp account from the phone first.</li>
+              <li>Replace <code>WHATSAPP_PHONE_NUMBER_ID</code> in Vercel with the new number's Phone number ID and redeploy.</li>
+              <li>Add a <b>payment method</b> in WhatsApp Manager → <b>Payment settings</b>. Template messages to customers are charged per message (rates depend on country and category).</li>
+              <li>Optional: <b>verify your business</b> in Business settings → Security Center to raise how many people you can message per day (new numbers start low).</li>
+            </ol>
+          </div>
+        </details>
+
+        <details class="step">
+          <summary><span class="n">!</span>Common errors and fixes</summary>
+          <div class="body">
+            <table class="mini errs">
+              <tr><td><b>Recipient phone number not in allowed list</b> (131030)</td><td>With the test number, add the recipient under <b>To</b> in API Setup (max 5), or switch to your own number.</td></tr>
+              <tr><td><b>Error validating access token / session has expired</b> (190)</td><td>The 24-hour token ran out. Make a permanent token (step 6) and redeploy.</td></tr>
+              <tr><td><b>Template name does not exist in the translation</b> (132001)</td><td>Check the template name and language code match WhatsApp Manager exactly, and that it's approved.</td></tr>
+              <tr><td><b>Number of parameters does not match</b> (132000)</td><td>Give one value line for each {{1}}, {{2}}… in the template.</td></tr>
+              <tr><td><b>Re-engagement message</b> (131047)</td><td>More than 24 h since the person last wrote to you: use a template instead of free text.</td></tr>
+              <tr><td><b>Message undeliverable</b> (131026)</td><td>The number isn't on WhatsApp, or is written wrong. Check the country code.</td></tr>
+              <tr><td><b>Rate limit hit</b> (130429 / 131056)</td><td>Sending too fast: raise the gaps under <b>Sending speed</b>.</td></tr>
+              <tr><td><b>Object with ID … does not exist</b> (100)</td><td><code>WHATSAPP_PHONE_NUMBER_ID</code> is wrong (it's the ID, not the phone number), or the token belongs to another app.</td></tr>
+            </table>
+          </div>
+        </details>
+
+        <p class="hint" style="margin-top:12px">Only message people who agreed to hear from you. Many "block" or "report" taps lower your number's quality rating and sending limits.</p>
+      </section>
+    </div>
   </div>
 </main>
 
@@ -812,6 +988,11 @@ async function loadConfig() {
   $("changePwBtn").classList.toggle("hidden", !cfg.accounts);
   const isAdmin = Boolean(me && me.role === "admin" && cfg.accounts && cfg.authRequired);
   $("usersTab").classList.toggle("hidden", !isAdmin);
+  // Setup guide: for admins (and in local mode without login)
+  const canSetup = Boolean(me && me.role === "admin");
+  $("setupTab").classList.toggle("hidden", !canSetup);
+  if (!canSetup && !$("viewSetup").classList.contains("hidden")) showView("send");
+  renderSetupChecklist();
   if (!isAdmin && !$("viewUsers").classList.contains("hidden")) showView("send");
   if (isAdmin) loadRequests(); else $("reqBadge").classList.add("hidden");
   if (me && me.mustChange) showPasswordForm(true);
@@ -1435,10 +1616,12 @@ function showView(v) {
   $("viewSend").classList.toggle("hidden", v !== "send");
   $("viewCampaigns").classList.toggle("hidden", v !== "campaigns");
   $("viewUsers").classList.toggle("hidden", v !== "users");
+  $("viewSetup").classList.toggle("hidden", v !== "setup");
   [...$("viewNav").children].forEach(b => b.classList.toggle("active", b.dataset.view === v));
   try { localStorage.setItem("wa_view", v === "users" ? "send" : v); } catch {}
   if (v === "campaigns") pollServer();
   if (v === "users") loadUsers();
+  if (v === "setup") renderSetupChecklist();
 }
 
 // ---------- Users (admins) ----------
@@ -1601,7 +1784,82 @@ function updateModeUi() {
   const noApi = !cfg.apiConfigured;
   $("apiSetupNote").classList.toggle("hidden", !noApi);
   $("startBtn").disabled = noApi || running;
+  const admin = cfg.user?.role === "admin";
+  $("setupLinkWrap").classList.toggle("hidden", !admin);
+  $("setupAskAdmin").classList.toggle("hidden", admin);
 }
+$("openSetupBtn").onclick = () => { showView("setup"); window.scrollTo({ top: 0, behavior: "smooth" }); };
+
+// ---------- Setup (WhatsApp Cloud API) ----------
+function renderSetupChecklist() {
+  const items = [
+    { ok: Boolean(cfg.storage && cfg.storageOk !== false), title: "Database connected", note: cfg.storage ? `Using ${cfg.storage === "postgres" ? "Neon Postgres" : cfg.storage === "redis" ? "Upstash Redis" : "local files"}` : "Connect Neon or Upstash in Vercel → Storage" },
+    { ok: !cfg.authMisconfigured, title: "Login password set", note: cfg.authRequired ? "APP_PASSWORD is set" : "Local mode: no login" },
+    ...(cfg.platform === "vercel" ? [{ ok: Boolean(cfg.cronConfigured), title: "Cron secret set", note: cfg.cronConfigured ? "CRON_SECRET is set (scheduled campaigns)" : "Add CRON_SECRET in Vercel for scheduled campaigns" }] : []),
+    { ok: Boolean(cfg.apiConfigured), title: "WhatsApp Cloud API", note: cfg.apiConfigured ? `Token and Phone number ID set (ID …${String(cfg.phoneNumberId || "").replace("…", "")})` : "Add WHATSAPP_TOKEN and WHATSAPP_PHONE_NUMBER_ID (steps 1–4)" },
+  ];
+  $("setupChecklist").innerHTML = items.map(i => `
+    <li><span class="ic ${i.ok ? "ok" : "no"}">${i.ok ? "✓" : "!"}</span><div><b>${esc(i.title)}</b><small>${esc(i.note)}</small></div></li>`).join("");
+  $("checkConnBtn").disabled = !cfg.apiConfigured;
+  $("testSendBtn").disabled = !cfg.apiConfigured;
+  $("checkConnBtn").title = cfg.apiConfigured ? "" : "Add the WhatsApp settings first";
+  $("setupBadge").classList.toggle("hidden", Boolean(cfg.apiConfigured));
+}
+
+// Plain-language fixes for the most common Meta error codes
+const META_TIPS = {
+  131030: "With the test number, add this number under “To” in WhatsApp → API Setup (max 5), or switch to your own number (step 7).",
+  190: "The access token has expired or is wrong. Make a permanent token (step 6), update WHATSAPP_TOKEN and redeploy.",
+  132001: "The template name or language doesn't match WhatsApp Manager, or it isn't approved yet.",
+  132000: "Give one value line for each {{1}}, {{2}}… in the template.",
+  131047: "More than 24 hours since this person wrote to you: send a template instead of free text.",
+  131026: "This number isn't on WhatsApp or is written wrong. Check the country code.",
+  100: "WHATSAPP_PHONE_NUMBER_ID is probably wrong (use the ID, not the phone number), or the token is for a different app.",
+  131056: "Too many messages to the same person too fast. Wait a little.",
+  130429: "Sending too fast. Raise the gaps under Sending speed.",
+};
+function metaTip(code, message) {
+  const c = code || Number((String(message || "").match(/\(#?(\d+)\)/) || [])[1]);
+  return META_TIPS[c] ? `<br><b>Fix:</b> ${esc(META_TIPS[c])}` : "";
+}
+function showConn(el, kind, html) { const b = $(el); b.className = "conn " + kind; b.innerHTML = html; }
+
+$("checkConnBtn").onclick = async () => {
+  $("checkConnBtn").disabled = true;
+  showConn("connResult", "info", "Asking Meta…");
+  try {
+    const r = await api("/api/setup/check");
+    if (r.ok) {
+      showConn("connResult", "ok", `✅ Connected.<br>Number: <b>${esc(r.phone || "?")}</b>${r.name ? ` · Name: <b>${esc(r.name)}</b>` : ""}${r.quality ? ` · Quality: <b>${esc(r.quality)}</b>` : ""}`);
+    } else if (r.configured === false) {
+      showConn("connResult", "bad", `Missing: ${esc((r.missing || []).join(", "))}. Follow steps 1–4.`);
+    } else {
+      showConn("connResult", "bad", `❌ ${esc(r.error || "Meta refused the request")}${metaTip(r.code, r.error)}`);
+    }
+  } catch (e) {
+    showConn("connResult", "bad", "Could not reach the server: " + esc(e.message));
+  } finally {
+    $("checkConnBtn").disabled = !cfg.apiConfigured;
+  }
+};
+
+$("testSendBtn").onclick = async () => {
+  const to = normalizePhone($("testTo").value);
+  if (to.length < 8) { $("testTo").focus(); return showConn("testResult", "bad", "Enter your WhatsApp number with country code."); }
+  $("testSendBtn").disabled = true;
+  showConn("testResult", "info", `Sending hello_world to +${esc(to)}…`);
+  try {
+    const r = await api("/api/send", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ to, type: "template", template: { name: "hello_world", language: "en_US", params: [] } }) });
+    if (r.ok) showConn("testResult", "ok", `✅ Sent to +${esc(to)}. Check WhatsApp on that phone for “Hello World”.`);
+    else showConn("testResult", "bad", `❌ ${esc(r.error)}${metaTip(null, r.error)}`);
+  } catch (e) {
+    showConn("testResult", "bad", "Could not reach the server: " + esc(e.message));
+  } finally {
+    $("testSendBtn").disabled = !cfg.apiConfigured;
+  }
+};
+$("testTo").addEventListener("keydown", (e) => { if (e.key === "Enter") $("testSendBtn").click(); });
 $("modeTabs").addEventListener("click", () => setTimeout(updateModeUi, 0));
 
 // ---------- Shared ----------

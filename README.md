@@ -26,6 +26,12 @@ You press Send yourself. This works with your normal WhatsApp account and suits 
 ### Cloud API mode (automatic)
 This uses Meta's official WhatsApp Business Cloud API.
 
+**In the app:** admins open the **Setup** tab (it shows a red **!** until the API is set up). It has a live checklist,
+a step-by-step guide (Meta app, token and Phone number ID, Vercel settings, templates, permanent token, your own number,
+payment), **Check connection** (asks Meta whether the token and Phone number ID work and shows the number, name and quality rating),
+**Send a test message** (Meta's `hello_world` template) and plain-language fixes for the common Meta error codes.
+The short version:
+
 1. Create an app at https://developers.facebook.com and add the **WhatsApp** product.
 2. Under **WhatsApp → API Setup**, copy the **access token** and the **Phone number ID**.
    For a lasting token, create a System User token in Business Settings.
