@@ -41,6 +41,8 @@
 
   /* ---------- Header ---------- */
   header { position: sticky; top: 0; z-index: 5; background: var(--card); border-bottom: 1px solid var(--line); }
+  /* On narrow screens the header wraps to several rows: don't pin it, so it doesn't cover the page */
+  @media (max-width: 760px) { header { position: static; } }
   .bar { max-width: 1180px; margin: 0 auto; padding: 10px 16px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
   .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; }
   .brand img { width: 32px; height: 32px; flex: none; }
@@ -223,6 +225,11 @@
   .st-failed { color: var(--err); font-weight: 600; }
   .st-sending { color: var(--warn); font-weight: 600; }
   .st-skipped { color: var(--muted); text-decoration: line-through; }
+  .st-dnc { color: var(--err); font-weight: 600; }
+  .dnc-add { display: grid; grid-template-columns: 1fr; gap: 6px; }
+  .dnc-list { max-height: 300px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; margin-top: 8px; }
+  .dnc-list table td { white-space: normal; }
+  #dncModal form { max-width: 560px; }
   .tools { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 
   /* Save as campaign */
@@ -268,8 +275,9 @@
   @media (max-width: 520px) { .drop.compact #dropSub { display: none; } }
 
   /* Login + toast */
-  .login { position: fixed; inset: 0; z-index: 20; background: var(--bg); display: grid; place-items: center; padding: 16px; }
-  .login form { width: 100%; max-width: 360px; }
+  /* Full-screen windows (login, new password, do-not-contact): centred when they fit, scrollable when they don't */
+  .login { position: fixed; inset: 0; z-index: 20; background: var(--bg); display: flex; flex-direction: column; overflow-y: auto; padding: 16px; }
+  .login form { width: 100%; max-width: 360px; margin: auto; flex: none; }
   .login .brand { justify-content: center; margin-bottom: 8px; }
   .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 30; background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-size: 14px; box-shadow: var(--shadow); max-width: calc(100% - 32px); }
 </style>
@@ -415,6 +423,8 @@
         <a id="downloadSample" href="/contacts.sample.csv" download="contacts-sample.csv">⬇ Download sample CSV</a>
         <span class="sep">|</span>
         <button id="loadSample">Try with sample contacts</button>
+        <span class="sep dnc-only hidden">|</span>
+        <button id="dncOpen" class="dnc-only hidden">🚫 Do-not-contact list <span id="dncCount"></span></button>
       </div>
       <div class="summary">
         <span id="contactInfo">No contacts loaded.</span>
@@ -808,6 +818,41 @@ This is a quick update from our team. Reply STOP if you don't want these message
   <span>NexGrowth Partner · Premium growth partner</span>
 </footer>
 
+<!-- Do-not-contact list -->
+<div id="dncModal" class="login hidden">
+  <form id="dncForm" class="card" novalidate>
+    <div class="row" style="align-items:flex-start">
+      <div class="grow">
+        <h2 style="margin:0">🚫 Do-not-contact list</h2>
+        <p class="hint" style="margin-top:4px">People who replied STOP or asked not to be messaged. They're skipped automatically in every contact list and campaign.</p>
+      </div>
+      <button type="button" id="dncClose" aria-label="Close">✕</button>
+    </div>
+
+    <div class="dnc-add">
+      <label for="dncInput" style="margin:6px 0 0">Add numbers: one per line, optionally followed by a comma and a name</label>
+      <textarea id="dncInput" rows="3" placeholder="+91 98765 43210, Ravi&#10;9812345678"></textarea>
+      <div class="row">
+        <input id="dncReason" class="grow" placeholder="Reason (optional), e.g. replied STOP" maxlength="120" />
+        <button type="button" class="primary" id="dncAddBtn">Add to list</button>
+      </div>
+      <div class="hint" id="dncMsg"></div>
+    </div>
+
+    <div class="row" style="margin-top:12px">
+      <input id="dncSearch" class="grow" placeholder="Search number or name" />
+      <span class="stats" id="dncTotal"></span>
+    </div>
+    <div class="dnc-list">
+      <table>
+        <thead><tr><th>Number</th><th>Name / reason</th><th>Added</th><th></th></tr></thead>
+        <tbody id="dncBody"></tbody>
+      </table>
+    </div>
+    <p class="hint" id="dncAdminNote"></p>
+  </form>
+</div>
+
 <div class="toast hidden" id="toast"></div>
 
 <script>
@@ -1012,6 +1057,7 @@ async function loadConfig() {
   renderSetupChecklist();
   if (!isAdmin && !$("viewUsers").classList.contains("hidden")) showView("send");
   if (isAdmin) loadRequests(); else $("reqBadge").classList.add("hidden");
+  if (cfg.loggedIn) loadDnc();
   if (me && me.mustChange) showPasswordForm(true);
   if (cfg.authMisconfigured) showLogin("This deployment has no APP_PASSWORD yet. Set it in Vercel → Settings → Environment Variables, then redeploy.");
   else if (cfg.authRequired && !cfg.loggedIn) showLogin();
@@ -1076,6 +1122,7 @@ function loadContacts() {
     contacts.push({ phone, data, status: "pending", note: "" });
   }
   $("contactInfo").textContent = `${contacts.length} contacts loaded` + (dup ? `, ${dup} duplicates removed` : "") + (bad ? `, ${bad} invalid numbers skipped` : "") + ".";
+  applyDnc();
   renderChips(); render();
 }
 
@@ -1139,16 +1186,22 @@ function render() {
       <td>+${esc(c.phone)}</td>
       <td>${esc(c.data.name || "")}</td>
       <td class="msg">${esc(messageFor(c)).slice(0, 200)}</td>
-      <td class="st-${c.status}" title="${esc(c.note)}">${c.status}${c.note && c.status === "failed" ? " ⓘ" : ""}</td>
-      <td>${mode === "manual" ? `<a class="btn" data-open="${i}" href="${esc(chatUrl(c))}" target="_blank" rel="noopener">Open</a>` : `<button data-skip="${i}">${c.status === "skipped" ? "Unskip" : "Skip"}</button>`}</td>
+      <td class="st-${c.dnc ? "dnc" : c.status}" title="${esc(c.note)}">${c.dnc ? "🚫 do not contact" : c.status}${c.note && c.status === "failed" ? " ⓘ" : ""}</td>
+      <td><div class="row" style="flex-wrap:nowrap;gap:6px">${c.dnc ? "" : (mode === "manual" ? `<a class="btn" data-open="${i}" href="${esc(chatUrl(c))}" target="_blank" rel="noopener">Open</a>` : `<button data-skip="${i}">${c.status === "skipped" ? "Unskip" : "Skip"}</button>`)}
+        ${c.dnc || !dncEnabled ? "" : `<button data-dnc="${i}" title="Add to the do-not-contact list (e.g. they replied STOP)" aria-label="Add to do-not-contact list">🚫</button>`}</div></td>
     </tr>`).join("");
   updateStats();
 }
 
 $("tbody").addEventListener("click", (e) => {
-  const o = e.target.dataset.open, s = e.target.dataset.skip;
+  const o = e.target.dataset.open, s = e.target.dataset.skip, d = e.target.closest("[data-dnc]")?.dataset.dnc;
   if (o !== undefined) markOpened(Number(o));
-  if (s !== undefined) { const c = contacts[s]; c.status = c.status === "skipped" ? "pending" : "skipped"; render(); }
+  if (s !== undefined) { const c = contacts[s]; if (c.dnc) return; c.status = c.status === "skipped" ? "pending" : "skipped"; render(); }
+  if (d !== undefined) {
+    const c = contacts[d];
+    if (!confirm(`Add ${c.data.name || "this contact"} (+${c.phone}) to the do-not-contact list?\n\nThey'll be skipped in every list and campaign from now on.`)) return;
+    addToDnc([{ phone: c.phone, name: c.data.name || "" }], "Marked while sending").then(r => { if (r) toast(`${c.data.name || "+" + c.phone} won't be contacted again`); });
+  }
 });
 
 function updateStats() {
@@ -1288,7 +1341,11 @@ const nextPending = () => contacts.findIndex(c => c.status === "pending");
 function updateOpenNext() {
   const a = $("openNext");
   const i = nextPending();
-  if (i < 0) { a.removeAttribute("href"); a.classList.add("disabled"); a.textContent = contacts.length ? "All chats opened ✓" : "Open next chat ▶"; return; }
+  if (i < 0) {
+    a.removeAttribute("href"); a.classList.add("disabled");
+    a.textContent = !contacts.length ? "Open next chat ▶" : contacts.some(c => c.status === "sent") ? "All chats opened ✓" : "Nothing to send";
+    return;
+  }
   a.href = chatUrl(contacts[i]);
   a.dataset.index = i;
   a.classList.remove("disabled");
@@ -1920,6 +1977,94 @@ $("testSendBtn").onclick = async () => {
 };
 $("testTo").addEventListener("keydown", (e) => { if (e.key === "Enter") $("testSendBtn").click(); });
 $("modeTabs").addEventListener("click", () => setTimeout(updateModeUi, 0));
+
+// ---------- Do-not-contact list ----------
+let dncEnabled = false;
+let dncEntries = [];
+let dncNumbers = new Set();
+
+function setDnc(list) {
+  dncEntries = list || [];
+  dncNumbers = new Set(dncEntries.map(e => e.phone));
+  $("dncCount").textContent = dncEntries.length ? `(${dncEntries.length})` : "";
+  applyDnc();
+  render();
+  if (!$("dncModal").classList.contains("hidden")) renderDncList();
+}
+async function loadDnc() {
+  try {
+    const r = await (await rawFetch("/api/dnc")).json();
+    dncEnabled = Boolean(r.ok);
+    document.querySelectorAll(".dnc-only").forEach(el => el.classList.toggle("hidden", !dncEnabled));
+    if (r.ok) setDnc(r.list);
+  } catch { /* offline */ }
+}
+// Mark loaded contacts that are on the list: skipped, and they can't be un-skipped
+function applyDnc() {
+  let n = 0;
+  for (const c of contacts) {
+    const on = dncNumbers.has(c.phone);
+    if (on) { n++; if (!c.dnc) { c.dnc = true; c.prevStatus = c.status; if (c.status !== "sent") c.status = "skipped"; c.note = "On the do-not-contact list"; } }
+    else if (c.dnc) { c.dnc = false; c.status = c.prevStatus === "sent" ? "sent" : "pending"; c.note = ""; }
+  }
+  const info = $("contactInfo");
+  const base = info.textContent.replace(/ \d+ on the do-not-contact list \(skipped\)\.$/, "");
+  info.textContent = n ? `${base} ${n} on the do-not-contact list (skipped).` : base;
+}
+async function addToDnc(entries, reason) {
+  const r = await api("/api/dnc", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ entries, reason }) });
+  if (!r.ok) { alert(r.error); return null; }
+  setDnc(r.list);
+  return r;
+}
+
+function renderDncList() {
+  const q = $("dncSearch").value.trim().toLowerCase().replace(/[^\w]/g, "");
+  const admin = cfg.user?.role === "admin";
+  const rows = dncEntries.slice().reverse().filter(e => !q || e.phone.includes(q) || (e.name || "").toLowerCase().replace(/[^\w]/g, "").includes(q));
+  $("dncTotal").textContent = `${dncEntries.length} number${dncEntries.length === 1 ? "" : "s"}`;
+  $("dncBody").innerHTML = rows.slice(0, 500).map(e => `
+    <tr>
+      <td>+${esc(e.phone)}</td>
+      <td>${esc(e.name || "")}${e.reason ? `<br><span class="hint" style="margin:0">${esc(e.reason)}</span>` : ""}</td>
+      <td><span class="hint" style="margin:0">${new Date(e.addedAt).toLocaleDateString()}${e.addedBy ? ` by ${esc(e.addedBy)}` : ""}</span></td>
+      <td>${admin ? `<button type="button" class="danger" data-dncdel="${esc(e.phone)}">Remove</button>` : ""}</td>
+    </tr>`).join("") || `<tr><td colspan="4" class="hint">${dncEntries.length ? "No matches." : "Nobody on the list yet."}</td></tr>`;
+  $("dncAdminNote").textContent = admin ? "" : "Only admins can remove numbers from this list.";
+}
+function openDnc() {
+  $("dncModal").classList.remove("hidden");
+  $("dncMsg").textContent = "";
+  renderDncList();
+  setTimeout(() => $("dncInput").focus(), 50);
+  loadDnc();
+}
+$("dncOpen").onclick = openDnc;
+$("dncClose").onclick = () => $("dncModal").classList.add("hidden");
+$("dncModal").addEventListener("click", (e) => { if (e.target.id === "dncModal") $("dncModal").classList.add("hidden"); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") $("dncModal").classList.add("hidden"); });
+$("dncForm").addEventListener("submit", (e) => e.preventDefault());
+$("dncSearch").addEventListener("input", renderDncList);
+
+$("dncAddBtn").onclick = async () => {
+  const lines = $("dncInput").value.split(/\n+/).map(s => s.trim()).filter(Boolean);
+  if (!lines.length) { $("dncInput").focus(); return; }
+  const entries = lines.map(l => { const [num, ...rest] = l.split(","); return { phone: normalizePhone(num), name: rest.join(",").trim() }; });
+  $("dncAddBtn").disabled = true;
+  try {
+    const r = await addToDnc(entries, $("dncReason").value.trim());
+    if (!r) return;
+    $("dncMsg").textContent = `Added ${r.added}` + (r.already ? `, ${r.already} already on the list` : "") + (r.bad ? `, ${r.bad} not valid numbers` : "") + ".";
+    if (r.added) { $("dncInput").value = ""; }
+  } finally { $("dncAddBtn").disabled = false; }
+};
+$("dncBody").addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-dncdel]"); if (!b) return;
+  if (!confirm(`Remove +${b.dataset.dncdel} from the do-not-contact list? They could be messaged again.`)) return;
+  const r = await api("/api/dnc/remove", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone: b.dataset.dncdel }) });
+  if (!r.ok) return alert(r.error);
+  setDnc(r.list);
+});
 
 // ---------- Shared ----------
 function resetStatus() { if (confirm("Reset every contact to pending?")) { contacts.forEach(c => { c.status = "pending"; c.note = ""; }); render(); } }

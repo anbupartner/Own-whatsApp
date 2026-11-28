@@ -107,6 +107,17 @@ While a run is stopped, the campaign's scheduled runs are skipped (and noted in 
 - `data/` holds your contacts, so it is in `.gitignore`.
 - Sending the same people the same message again and again quickly gets the number reported. Only message people who asked to hear from you.
 
+## Do-not-contact list
+
+People who replied STOP or asked not to be messaged go on one shared list, and are never messaged again by anyone.
+
+- **Add:** in the Send tab, click **🚫 Do-not-contact list** (under the contacts box) and paste numbers, one per line,
+  optionally `number, name`, with an optional reason. Or click **🚫** on a contact's row while sending.
+- **Skipped everywhere:** when contacts are loaded, listed numbers show **🚫 do not contact** and can't be opened or un-skipped.
+  Saving a campaign leaves them out, a campaign run skips numbers added after it was saved, and the server refuses to send to them.
+- **Remove:** only admins can take a number off the list (in the same window).
+- Numbers are stored with the country code; 10-digit numbers get the default country code (91) when added.
+
 ## Attachments (images and documents)
 
 In the Message card, pick a file or paste a public `https://` link to one.
