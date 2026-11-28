@@ -248,7 +248,7 @@
 <body>
 
 <div id="login" class="login hidden">
-  <form id="loginForm" class="card">
+  <form id="loginForm" class="card" novalidate>
     <picture>
       <source srcset="/brand/logo-on-dark.svg" media="(prefers-color-scheme: dark)" />
       <img class="login-logo" src="/brand/logo-on-light.svg" alt="NexGrowth Partner" />
@@ -737,7 +737,16 @@ document.addEventListener("click", (e) => {
 
 $("loginForm").addEventListener("submit", async (e) => {
   e.preventDefault();
+  // The Forgot-password screen lives inside this form: Enter there does that screen's action
+  if (!$("forgotPanel").classList.contains("hidden")) {
+    if (!$("fpReq").classList.contains("hidden")) $("fpSend").click();
+    else if (!$("fpSetWrap").classList.contains("hidden")) $("fpSet").click();
+    else $("fpCheck").click();
+    return;
+  }
   $("loginErr").textContent = "";
+  if (!$("loginUser").value.trim()) { $("loginErr").textContent = "Enter your username"; $("loginUser").focus(); return; }
+  if (!$("loginPw").value) { $("loginErr").textContent = "Enter your password"; $("loginPw").focus(); return; }
   $("loginBtn").disabled = true; $("loginBtn").textContent = "Logging in…";
   try {
     const username = $("loginUser").value.trim().toLowerCase();
