@@ -44,8 +44,11 @@ if (HOST !== "127.0.0.1" && HOST !== "localhost" && !authRequired) {
   process.exit(1);
 }
 
-// Check the schedule every second (on Vercel, /api/cron does this instead)
-setInterval(() => { cronTick().catch((e) => log("Schedule error:", e.message)); }, 1000);
+// Check the schedule every second. Not on Vercel (which may also run this file as a server):
+// there /api/cron does it, and a timer would query the database every second.
+if (!process.env.VERCEL) {
+  setInterval(() => { cronTick().catch((e) => log("Schedule error:", e.message)); }, 1000);
+}
 
 server.listen(PORT, HOST, async () => {
   log(`WhatsApp sender running at http://localhost:${PORT}`);

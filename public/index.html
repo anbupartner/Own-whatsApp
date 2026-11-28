@@ -766,6 +766,8 @@ $("logoutBtn").onclick = async () => { $("userMenu").open = false; await rawFetc
 // ---- Change password ----
 let pwForced = false;
 function showPasswordForm(forced) {
+  // Already open: leave it alone, so a background check never wipes what the person is typing
+  if (!$("pwModal").classList.contains("hidden") && (pwForced || !forced)) return;
   pwForced = forced;
   $("pwModal").classList.remove("hidden");
   $("pwCurrentWrap").classList.toggle("hidden", forced);
@@ -1406,7 +1408,8 @@ async function exportCampaignResults(id) {
 }
 
 async function pollServer() {
-  if (!$("login").classList.contains("hidden")) return;
+  // not while logged out or while a new password is being set
+  if (!$("login").classList.contains("hidden") || !$("pwModal").classList.contains("hidden")) return;
   try {
     const r = await fetch("/api/campaigns");
     if (r.ok) renderCampaigns(await r.json());
@@ -1500,6 +1503,7 @@ function renderRequests(list) {
 }
 async function loadRequests() {
   if (!cfg.user || cfg.user.role !== "admin" || !cfg.accounts || !cfg.authRequired) return;
+  if (!$("pwModal").classList.contains("hidden")) return;
   try {
     const r = await (await rawFetch("/api/users/requests")).json();
     if (r.ok) renderRequests(r.requests);
