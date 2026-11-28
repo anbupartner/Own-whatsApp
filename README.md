@@ -170,8 +170,14 @@ Everyone logs in with a **username and password**. Accounts are kept in the data
   A one-time password is shown once; give it to the person. At first login they must choose their own password.
 - **Roles:** users can send and manage campaigns. Admins can also add and delete users, change roles and reset passwords.
   There is always at least one admin, and nobody can delete their own account.
-- **Forgot password:** the login screen tells people to ask their admin. The admin clicks **Reset password** on that user,
-  which signs them out everywhere and shows a new one-time password.
+- **Forgot password (request and approve):**
+  1. On the login screen the person clicks **Forgot password? → Request a reset** and enters their username.
+     They see a 4-digit **check code** and a secret **request code** (their browser remembers it for 24 hours).
+  2. Admins see the request in the **Users** tab (red badge on the tab). Ask the person for their check code;
+     if it matches, click **Approve** (or **Decline**). Approving signs that user out everywhere.
+  3. The person opens **Forgot password? → I have a request code**, clicks **Check approval** and sets a new password.
+  Requests expire after 24 hours, one request per username every 2 minutes, and the answers never reveal whether a username exists.
+  Admins can still use **Reset password** on a user to hand out a one-time password instead.
 - **Admin locked out:** log in with the admin username and `APP_PASSWORD`. This recovery login then asks for a new password.
 - **Change password:** from the account menu (top right). Changing a password signs out that account's other sessions.
 - **Too many wrong tries:** 5 wrong passwords lock that username for 10 minutes (an admin reset unlocks it).

@@ -56,8 +56,25 @@
   .pw-wrap input { padding-right: 42px; }
   .pw-eye { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); border: none; background: none; padding: 4px 8px; font-size: 15px; opacity: .6; }
   .pw-eye:hover { opacity: 1; }
-  .forgot { margin: 12px 0 14px; padding: 14px; border-radius: 10px; background: var(--card-2); font-size: 14px; }
-  .forgot p { margin: 6px 0 0; }
+  .seg { display: flex; gap: 4px; background: var(--bg); padding: 4px; border-radius: 10px; }
+  .seg button { flex: 1; border: none; background: transparent; font-size: 13px; padding: 7px 8px; color: var(--muted); font-weight: 600; }
+  .seg button.active { background: var(--card); color: var(--text); box-shadow: var(--shadow); }
+  .codes { display: grid; grid-template-columns: 1fr 1.4fr; gap: 8px; margin-top: 14px; }
+  .codes > div { display: flex; flex-direction: column; align-items: center; padding: 10px 6px; border-radius: 10px; background: var(--accent-soft); text-align: center; }
+  .codes span { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--accent-strong); }
+  .codes b { font-size: 20px; letter-spacing: 1px; font-family: ui-monospace, Consolas, monospace; margin: 2px 0; user-select: all; }
+  .codes small { font-size: 11px; color: var(--muted); }
+  .steps-mini { margin: 12px 0 0; padding-left: 20px; font-size: 13px; }
+  .steps-mini li { margin-bottom: 4px; }
+  .fp-status { margin-top: 12px; padding: 10px 12px; border-radius: 10px; font-size: 13px; }
+  .fp-status.pending { background: var(--warn-soft); color: var(--warn); }
+  .fp-status.approved { background: var(--ok-soft); color: var(--ok); }
+  .fp-status.declined { background: var(--err-soft); color: var(--err); }
+  .req-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+  .req { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--card-2); }
+  .req .who { min-width: 160px; flex: 1; }
+  .req .check { font-family: ui-monospace, Consolas, monospace; font-size: 20px; font-weight: 700; letter-spacing: 2px; padding: 2px 10px; border-radius: 8px; background: var(--card); border: 1px solid var(--line); }
+  .badge-dot { display: inline-block; min-width: 18px; padding: 0 5px; margin-left: 4px; border-radius: 99px; background: var(--err); color: #fff; font-size: 11px; line-height: 18px; text-align: center; }
   .usermenu { position: relative; }
   .usermenu > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px; padding: 4px 10px 4px 4px; border: 1px solid var(--line); border-radius: 999px; font-weight: 600; font-size: 13px; }
   .usermenu > summary::-webkit-details-marker { display: none; }
@@ -249,12 +266,54 @@
       <button class="primary big" type="submit" style="width:100%" id="loginBtn">Log in</button>
     </div>
     <div id="forgotPanel" class="hidden">
-      <div class="forgot">
-        <b>Forgot your password?</b>
-        <p>Ask your NexGrowth admin to reset it. They'll give you a temporary password, and you'll choose a new one when you log in.</p>
-        <p class="hint">Admin locked out? Log in with the admin username and the recovery password (<code>APP_PASSWORD</code>) set in Vercel. You'll then be asked to choose a new password.</p>
+      <h2 style="text-align:center;margin:6px 0 10px">Forgot your password?</h2>
+      <div class="seg" id="fpTabs">
+        <button type="button" data-fp="req" class="active">Request a reset</button>
+        <button type="button" data-fp="done">I have a request code</button>
       </div>
-      <button type="button" class="big" style="width:100%" id="backToLogin">← Back to log in</button>
+
+      <!-- 1. ask the admin -->
+      <div id="fpReq">
+        <p class="hint">Enter your username. Your admin sees the request and approves it; then you choose a new password here.</p>
+        <label for="fpUser">Username</label>
+        <input id="fpUser" autocapitalize="none" spellcheck="false" />
+        <button type="button" class="primary big" style="width:100%;margin-top:12px" id="fpSend">Send request</button>
+        <div id="fpResult" class="hidden">
+          <div class="codes">
+            <div><span>Check code</span><b id="fpCheckCode">—</b><small>Tell this to your admin</small></div>
+            <div><span>Request code</span><b id="fpReqCode">—</b><small>Keep this secret</small></div>
+          </div>
+          <ol class="steps-mini">
+            <li>Tell your admin you asked for a reset and read them the <b>check code</b>.</li>
+            <li>When they've approved it, open <b>I have a request code</b> and set your new password.</li>
+          </ol>
+          <div class="hint">This browser remembers your request code for 24 hours. Requests expire after 24 hours.</div>
+        </div>
+      </div>
+
+      <!-- 2. finish after approval -->
+      <div id="fpDone" class="hidden">
+        <label for="fpUser2">Username</label>
+        <input id="fpUser2" autocapitalize="none" spellcheck="false" />
+        <label for="fpCode">Request code</label>
+        <input id="fpCode" placeholder="ABCDE-FGHJK" autocapitalize="characters" spellcheck="false" />
+        <div id="fpStatus" class="fp-status hidden"></div>
+        <button type="button" class="big" style="width:100%;margin-top:12px" id="fpCheck">Check approval</button>
+        <div id="fpSetWrap" class="hidden">
+          <label for="fpNew">New password</label>
+          <div class="pw-wrap">
+            <input id="fpNew" type="password" autocomplete="new-password" minlength="8" />
+            <button type="button" class="pw-eye" data-for="fpNew" aria-label="Show password">👁</button>
+          </div>
+          <label for="fpNew2">Type it again</label>
+          <input id="fpNew2" type="password" autocomplete="new-password" minlength="8" />
+          <button type="button" class="primary big" style="width:100%;margin-top:12px" id="fpSet">Set new password</button>
+        </div>
+      </div>
+
+      <div class="st-failed" id="fpErr" style="min-height:18px;margin-top:8px;font-size:13px"></div>
+      <p class="hint" style="margin-top:4px">Admin locked out? Log in with the admin username and the recovery password (<code>APP_PASSWORD</code>) set in Vercel.</p>
+      <button type="button" class="link" style="width:100%;margin-top:8px" id="backToLogin">← Back to log in</button>
     </div>
   </form>
 </div>
@@ -293,7 +352,7 @@
     <nav class="views" id="viewNav">
       <button data-view="send" class="active">Send</button>
       <button data-view="campaigns">Campaigns<span class="count hidden" id="campCount"></span></button>
-      <button data-view="users" class="hidden" id="usersTab">Users</button>
+      <button data-view="users" class="hidden" id="usersTab">Users<span class="badge-dot hidden" id="reqBadge" title="Password reset requests waiting"></span></button>
     </nav>
     <div class="right">
       <span id="apiBadge" class="badge off">Checking…</span>
@@ -521,6 +580,11 @@ This is a quick update from our team. Reply STOP if you don't want these message
         <p>People who can log in. New users and password resets get a one-time password they change at first login.</p>
       </div>
     </div>
+    <section class="card hidden" id="reqCard" style="margin-bottom:14px">
+      <h3 style="margin:0 0 4px;font-size:14px">🔑 Password reset requests</h3>
+      <div class="hint" style="margin-top:0">Before approving, ask the person for the <b>check code</b> shown on their screen. If it matches, the request is really theirs. After approval they set a new password themselves.</div>
+      <div class="req-list" id="reqList"></div>
+    </section>
     <section class="card">
       <h3 style="margin:0 0 4px;font-size:14px">＋ Add a user</h3>
       <div class="row" style="margin-top:8px">
@@ -584,8 +648,84 @@ function showForgot(on) {
   $("loginFields").classList.toggle("hidden", on);
   $("forgotPanel").classList.toggle("hidden", !on);
 }
-$("forgotBtn").onclick = () => showForgot(true);
+$("forgotBtn").onclick = () => {
+  showForgot(true);
+  const saved = savedReset();
+  // returning with a saved request: go straight to "I have a request code"
+  fpTab(saved ? "done" : "req");
+  $("fpUser").value = $("loginUser").value.trim();
+};
 $("backToLogin").onclick = () => { showForgot(false); $("loginPw").focus(); };
+
+// ---- Forgot password: request a reset, then finish it after approval ----
+function savedReset() {
+  try { const s = JSON.parse(localStorage.getItem("wa_reset") || "null"); return s && Date.now() - s.at < 24 * 3600e3 ? s : null; } catch { return null; }
+}
+function fpTab(t) {
+  [...$("fpTabs").children].forEach(b => b.classList.toggle("active", b.dataset.fp === t));
+  $("fpReq").classList.toggle("hidden", t !== "req");
+  $("fpDone").classList.toggle("hidden", t !== "done");
+  $("fpErr").textContent = "";
+  if (t === "done") {
+    const s = savedReset();
+    if (s) { $("fpUser2").value = s.username; $("fpCode").value = s.requestCode; }
+    else if (!$("fpUser2").value) $("fpUser2").value = $("loginUser").value.trim();
+  }
+}
+$("fpTabs").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) fpTab(b.dataset.fp); });
+const post = async (url, body) => (await rawFetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })).json();
+
+$("fpSend").onclick = async () => {
+  $("fpErr").textContent = "";
+  const username = $("fpUser").value.trim().toLowerCase();
+  if (!username) { $("fpUser").focus(); return; }
+  $("fpSend").disabled = true;
+  try {
+    const r = await post("/api/reset/request", { username });
+    if (!r.ok) { $("fpErr").textContent = r.error; return; }
+    $("fpCheckCode").textContent = r.checkCode;
+    $("fpReqCode").textContent = r.requestCode;
+    $("fpResult").classList.remove("hidden");
+    $("fpSend").textContent = "Request sent ✓";
+    try { localStorage.setItem("wa_reset", JSON.stringify({ username, requestCode: r.requestCode, at: Date.now() })); } catch {}
+  } finally {
+    setTimeout(() => { $("fpSend").disabled = false; $("fpSend").textContent = "Send request"; }, 4000);
+  }
+};
+
+function fpShowStatus(status, extra) {
+  const box = $("fpStatus");
+  box.className = "fp-status " + status;
+  box.textContent = {
+    pending: "⏳ Waiting for your admin to approve. Tell them your check code, then check again.",
+    approved: "✅ Approved. Choose your new password below.",
+    declined: "✖ Your admin declined this request. Ask them, or send a new request.",
+  }[status] + (extra || "");
+  $("fpSetWrap").classList.toggle("hidden", status !== "approved");
+  $("fpCheck").classList.toggle("hidden", status === "approved");
+  if (status === "approved") setTimeout(() => $("fpNew").focus(), 50);
+}
+$("fpCheck").onclick = async () => {
+  $("fpErr").textContent = ""; $("fpStatus").classList.add("hidden");
+  const r = await post("/api/reset/status", { username: $("fpUser2").value.trim().toLowerCase(), requestCode: $("fpCode").value.trim() });
+  if (!r.ok) { $("fpErr").textContent = r.error; return; }
+  fpShowStatus(r.status);
+};
+$("fpSet").onclick = async () => {
+  $("fpErr").textContent = "";
+  if ($("fpNew").value !== $("fpNew2").value) { $("fpErr").textContent = "The two new passwords don't match"; return; }
+  const username = $("fpUser2").value.trim().toLowerCase();
+  const r = await post("/api/reset/complete", { username, requestCode: $("fpCode").value.trim(), newPassword: $("fpNew").value });
+  if (!r.ok) { $("fpErr").textContent = r.error; return; }
+  try { localStorage.removeItem("wa_reset"); } catch {}
+  ["fpNew", "fpNew2", "fpCode"].forEach(id => $(id).value = "");
+  $("fpSetWrap").classList.add("hidden"); $("fpStatus").classList.add("hidden"); $("fpCheck").classList.remove("hidden");
+  showForgot(false);
+  $("loginUser").value = username; $("loginPw").value = "";
+  $("loginErr").textContent = "";
+  toast("Password changed. Log in with your new password.");
+  $("loginPw").focus();
+};
 try { $("loginUser").value = localStorage.getItem("wa_user") || ""; } catch {}
 
 // Show / hide password buttons
@@ -662,6 +802,7 @@ async function loadConfig() {
   const isAdmin = Boolean(me && me.role === "admin" && cfg.accounts && cfg.authRequired);
   $("usersTab").classList.toggle("hidden", !isAdmin);
   if (!isAdmin && !$("viewUsers").classList.contains("hidden")) showView("send");
+  if (isAdmin) loadRequests(); else $("reqBadge").classList.add("hidden");
   if (me && me.mustChange) showPasswordForm(true);
   if (cfg.authMisconfigured) showLogin("This deployment has no APP_PASSWORD yet. Set it in Vercel → Settings → Environment Variables, then redeploy.");
   else if (cfg.authRequired && !cfg.loggedIn) showLogin();
@@ -1326,7 +1467,48 @@ function renderUsers(list) {
 async function loadUsers() {
   const r = await api("/api/users");
   if (r.ok) renderUsers(r.users); else $("usersBody").innerHTML = `<tr><td colspan="5" class="st-failed">${esc(r.error)}</td></tr>`;
+  loadRequests();
 }
+
+// ---- Password reset requests (admins) ----
+function renderRequests(list) {
+  const pending = list.filter(r => r.status === "pending").length;
+  $("reqBadge").textContent = pending;
+  $("reqBadge").classList.toggle("hidden", !pending);
+  $("reqCard").classList.toggle("hidden", !list.length);
+  $("reqList").innerHTML = list.map(r => `
+    <div class="req">
+      <div class="who"><b>${esc(r.name)}</b> <span class="hint" style="margin:0">${esc(r.username)}</span><br>
+        <span class="hint" style="margin:0">asked ${ago(r.createdAt)}${r.status !== "pending" ? ` · ${r.status} by ${esc(r.decidedBy || "")}` : ""}</span></div>
+      <div style="text-align:center"><div class="hint" style="margin:0">check code</div><span class="check">${esc(r.checkCode)}</span></div>
+      <div class="row">
+        ${r.status === "pending"
+          ? `<button class="primary" data-ract="approve-reset" data-u="${esc(r.username)}">✓ Approve</button>
+             <button class="danger" data-ract="decline-reset" data-u="${esc(r.username)}">Decline</button>`
+          : `<span class="role ${r.status === "approved" ? "admin" : ""}">${r.status === "approved" ? "Approved: waiting for them to set a password" : "Declined"}</span>`}
+      </div>
+    </div>`).join("");
+}
+async function loadRequests() {
+  if (!cfg.user || cfg.user.role !== "admin" || !cfg.accounts || !cfg.authRequired) return;
+  try {
+    const r = await (await rawFetch("/api/users/requests")).json();
+    if (r.ok) renderRequests(r.requests);
+  } catch { /* offline */ }
+}
+$("reqList").addEventListener("click", async (e) => {
+  const b = e.target.closest("button[data-ract]"); if (!b) return;
+  const u = b.dataset.u, approve = b.dataset.ract === "approve-reset";
+  if (!confirm(approve
+    ? `Approve the password reset for ${u}?\n\nOnly approve if they told you the same check code. They'll be signed out and can then set a new password.`
+    : `Decline the password reset request from ${u}?`)) return;
+  const r = await api(`/api/users/${encodeURIComponent(u)}/${b.dataset.ract}`, { method: "POST" });
+  if (!r.ok) return alert(r.error);
+  renderRequests(r.requests);
+  toast(approve ? `Approved. ${u} can now set a new password.` : `Declined the request from ${u}`);
+});
+// admins: check for new requests every 20 seconds (badge on the Users tab)
+setInterval(() => { if (!document.hidden) loadRequests(); }, 20000);
 $("addUserBtn").onclick = async () => {
   const username = $("newUser").value.trim().toLowerCase();
   if (!username) { $("newUser").focus(); return; }
